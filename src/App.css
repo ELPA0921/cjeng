@@ -380,6 +380,111 @@
   line-height: 1.2;
 }
 
+.home-view {
+  display: grid;
+  gap: 18px;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.home-panel {
+  min-height: 360px;
+}
+
+.home-list {
+  display: grid;
+  gap: 10px;
+}
+
+.home-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.home-list-item:hover {
+  border-color: var(--line-strong);
+  background: #fbfcfd;
+}
+
+.home-list-item span,
+.home-list-item strong,
+.home-list-item small {
+  display: block;
+  min-width: 0;
+}
+
+.home-list-item strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-list-item small {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.home-list-item em {
+  flex: 0 0 auto;
+  min-width: 52px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+  padding: 5px 8px;
+  text-align: center;
+}
+
+.home-list-item b {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.home-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.home-shortcuts button {
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+}
+
+.home-shortcuts button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: 380px minmax(0, 1fr);
@@ -1309,6 +1414,11 @@ tbody tr.selected-row:hover td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .home-grid,
+  .home-shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .worker-entry {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1361,6 +1471,8 @@ tbody tr.selected-row:hover td {
 
   .metric-grid,
   .content-grid,
+  .home-grid,
+  .home-shortcuts,
   .project-list,
   .two-columns,
   .three-columns,

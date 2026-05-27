@@ -65,6 +65,7 @@ type PurchaseOrder = {
 }
 
 type View =
+  | 'home'
   | 'orders'
   | 'project'
   | 'dashboard'
@@ -685,7 +686,7 @@ function App() {
     password: '',
   })
   const [loginError, setLoginError] = useState('')
-  const [view, setView] = useState<View>('orders')
+  const [view, setView] = useState<View>('home')
   const [orderYear, setOrderYear] = useState(currentYear)
   const [orders, setOrders] = useState(() =>
     loadStoredData('cost-app-orders', defaultOrders),
@@ -841,7 +842,7 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('cost-app-authenticated')
     setIsAuthenticated(false)
-    setView('orders')
+    setView('home')
   }
 
   const projectSummaries = useMemo(
@@ -986,6 +987,15 @@ function App() {
     (total, project) => total + project.hours,
     0,
   )
+  const activeProjectCount = projectSummaries.filter(
+    (project) => project.status === '진행중',
+  ).length
+  const recentProjects = [...projectSummaries]
+    .sort((a, b) => compareText(b.orderDate, a.orderDate))
+    .slice(0, 5)
+  const highCostProjects = [...projectSummaries]
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 5)
   const calendarDays = getMonthDays(workLogMonth)
   const calendarWorkLogs = workLogs.filter((workLog) =>
     workLog.date.startsWith(workLogMonth),
@@ -1823,12 +1833,19 @@ function App() {
           className="brand-home"
           type="button"
           aria-label="홈으로 이동"
-          onClick={() => setView('orders')}
+          onClick={() => setView('home')}
         >
           <img src="/cj-logo-white.jpg" alt="창조이엔지" />
         </button>
 
         <nav className="nav-tabs" aria-label="주요 메뉴">
+          <button
+            className={view === 'home' ? 'active' : ''}
+            type="button"
+            onClick={() => setView('home')}
+          >
+            홈
+          </button>
           <button
             className={view === 'orders' ? 'active' : ''}
             type="button"
@@ -1875,7 +1892,9 @@ function App() {
         <header className="topbar">
           <div>
             <p className="eyebrow">
-              {view === 'orders'
+              {view === 'home'
+                ? '홈'
+                : view === 'orders'
                 ? '수주대장'
                 : view === 'project'
                   ? '공사 상세'
@@ -1888,7 +1907,9 @@ function App() {
                         : '작업일보'}
             </p>
             <h2>
-              {view === 'orders'
+              {view === 'home'
+                ? '전체 현황'
+                : view === 'orders'
                 ? `${orderYear}년 수주대장`
                 : view === 'contacts'
                   ? '거래처 내역'
@@ -1902,7 +1923,12 @@ function App() {
             </h2>
           </div>
           <div className="topbar-actions">
-            {view === 'contacts' ? (
+            {view === 'home' ? (
+              <>
+                <span>진행중 {activeProjectCount}건</span>
+                <span>전체 {orders.length}건</span>
+              </>
+            ) : view === 'contacts' ? (
               <>
                 <span>물품구입처 {purchaseVendorContacts.length}건</span>
                 <span>발주처 {orderVendorContacts.length}건</span>
@@ -1932,24 +1958,109 @@ function App() {
           </div>
         </header>
 
-        {view === 'orders' && (
-          <section className="metric-grid" aria-label="전체 요약">
-            <article>
-              <span>수주대장</span>
-              <strong>{orders.length}건</strong>
-            </article>
-            <article>
-              <span>{orderYear}년 수주</span>
-              <strong>{filteredOrders.length}건</strong>
-            </article>
-            <article>
-              <span>전체 공사비</span>
-              <strong>{formatMoney(totalCost)}</strong>
-            </article>
-            <article>
-              <span>전체 공수</span>
-              <strong>{(totalHours / 8).toFixed(2)}명</strong>
-            </article>
+        {view === 'home' && (
+          <section className="home-view">
+            <section className="metric-grid" aria-label="전체 요약">
+              <article>
+                <span>전체 수주</span>
+                <strong>{orders.length}건</strong>
+              </article>
+              <article>
+                <span>진행중 공사</span>
+                <strong>{activeProjectCount}건</strong>
+              </article>
+              <article>
+                <span>전체 공사비</span>
+                <strong>{formatMoney(totalCost)}</strong>
+              </article>
+              <article>
+                <span>전체 공수</span>
+                <strong>{(totalHours / 8).toFixed(2)}명</strong>
+              </article>
+            </section>
+
+            <section className="home-grid">
+              <article className="panel home-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h3>최근 수주</h3>
+                    <span>최근 등록된 공사 기준</span>
+                  </div>
+                  <button
+                    className="text-link"
+                    type="button"
+                    onClick={() => setView('orders')}
+                  >
+                    전체보기
+                  </button>
+                </div>
+                <div className="home-list">
+                  {recentProjects.map((project) => (
+                    <button
+                      className="home-list-item"
+                      key={project.id}
+                      type="button"
+                      onClick={() => openProject(project.id)}
+                    >
+                      <span>
+                        <strong>{project.projectName}</strong>
+                        <small>
+                          {project.orderNo} · {project.client1}
+                        </small>
+                      </span>
+                      <em>{project.status}</em>
+                    </button>
+                  ))}
+                </div>
+              </article>
+
+              <article className="panel home-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h3>공사비 상위</h3>
+                    <span>지출금액 기준</span>
+                  </div>
+                  <button
+                    className="text-link"
+                    type="button"
+                    onClick={() => setView('dashboard')}
+                  >
+                    현황보기
+                  </button>
+                </div>
+                <div className="home-list">
+                  {highCostProjects.map((project) => (
+                    <button
+                      className="home-list-item"
+                      key={project.id}
+                      type="button"
+                      onClick={() => openProject(project.id)}
+                    >
+                      <span>
+                        <strong>{project.projectName}</strong>
+                        <small>{project.region}</small>
+                      </span>
+                      <b>{formatMoney(project.cost)}</b>
+                    </button>
+                  ))}
+                </div>
+              </article>
+            </section>
+
+            <section className="panel home-shortcuts">
+              <button type="button" onClick={openNewOrderModal}>
+                수주 등록
+              </button>
+              <button type="button" onClick={openNewExpenseModal}>
+                지출 등록
+              </button>
+              <button type="button" onClick={() => setIsWorkLogModalOpen(true)}>
+                작업일보 추가
+              </button>
+              <button type="button" onClick={() => setView('contacts')}>
+                거래처 확인
+              </button>
+            </section>
           </section>
         )}
 
