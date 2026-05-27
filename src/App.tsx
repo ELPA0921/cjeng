@@ -23,9 +23,9 @@ type Expense = {
   id: string
   projectId: string
   date: string
-  kind: '카드' | '세금계산서'
+  kind: string
   vendor: string
-  category: string
+  category?: string
   memo: string
   cardNumber?: string
   supplyAmount?: number
@@ -98,7 +98,6 @@ type ExpenseSortKey =
   | 'date'
   | 'kind'
   | 'vendor'
-  | 'category'
   | 'memo'
   | 'cardNumber'
   | 'supplyAmount'
@@ -458,6 +457,25 @@ const formatNumber = (value: number) =>
 const formatTableDate = (value: string) =>
   value ? `${value.replaceAll('-', '. ')}.` : ''
 
+const expenseKindOptions = [
+  '법인카드',
+  '전자세금계산서',
+  '종이세금계산서',
+  '개인카드',
+  '기타',
+]
+
+function normalizeExpenseKind(kind: string) {
+  if (kind === '카드') return '법인카드'
+  if (kind === '세금계산서') return '전자세금계산서'
+
+  return kind
+}
+
+function isTaxInvoiceKind(kind: string) {
+  return kind === '전자세금계산서' || kind === '종이세금계산서'
+}
+
 const parseMoneyInput = (value: string) => Math.max(0, Number(value) || 0)
 const normalizeMoneyInput = (value: string) => value.replace(/[^\d]/g, '')
 const formatMoneyInput = (value: string) => {
@@ -737,9 +755,9 @@ function App() {
   const [expenseForm, setExpenseForm] = useState({
     projectId: defaultProjectId,
     date: today,
-    kind: '카드' as Expense['kind'],
+    kind: '법인카드',
+    customKind: '',
     vendor: '',
-    category: '자재비',
     memo: '',
     cardNumber: '',
     supplyAmount: '',
@@ -1472,14 +1490,16 @@ function App() {
     const expense = expenses.find((item) => item.id === selectedExpenseIds[0])
 
     if (!expense || selectedExpenseIds.length !== 1) return
+    const normalizedKind = normalizeExpenseKind(expense.kind)
+    const isKnownKind = expenseKindOptions.includes(normalizedKind)
 
     setEditingExpenseId(expense.id)
     setExpenseForm({
       projectId: expense.projectId,
       date: expense.date,
-      kind: expense.kind,
+      kind: isKnownKind ? normalizedKind : '기타',
+      customKind: isKnownKind ? '' : normalizedKind,
       vendor: expense.vendor,
-      category: expense.category,
       memo: expense.memo,
       cardNumber: expense.cardNumber ?? '',
       supplyAmount: String(getExpenseSupplyAmount(expense)),
@@ -1514,6 +1534,8 @@ function App() {
       ...current,
       projectId: selectedProjectId,
       date: today,
+      kind: '법인카드',
+      customKind: '',
       vendor: '',
       memo: '',
       cardNumber: '',
@@ -1532,6 +1554,8 @@ function App() {
       ...current,
       projectId: selectedProjectId,
       date: today,
+      kind: '법인카드',
+      customKind: '',
       vendor: '',
       memo: '',
       cardNumber: '',
@@ -1587,6 +1611,13 @@ function App() {
 
   function addExpense(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const resolvedExpenseKind =
+      expenseForm.kind === '기타'
+        ? expenseForm.customKind.trim() || '기타'
+        : expenseForm.kind
+    const cardNumber = isTaxInvoiceKind(resolvedExpenseKind)
+      ? ''
+      : expenseForm.cardNumber
     const calculatedExpense = calculateExpenseAmountFields('supplyAmount', {
       ...expenseForm,
     })
@@ -1608,11 +1639,10 @@ function App() {
                 ...expense,
                 projectId: expenseForm.projectId,
                 date: expenseForm.date,
-                kind: expenseForm.kind,
+                kind: resolvedExpenseKind,
                 vendor: expenseForm.vendor,
-                category: expenseForm.category,
                 memo: expenseForm.memo,
-                cardNumber: expenseForm.cardNumber,
+                cardNumber,
                 supplyAmount,
                 vatAmount,
                 amount,
@@ -1625,6 +1655,8 @@ function App() {
       setSelectedExpenseIds([])
       setExpenseForm((current) => ({
         ...current,
+        kind: '법인카드',
+        customKind: '',
         vendor: '',
         memo: '',
         cardNumber: '',
@@ -1641,11 +1673,10 @@ function App() {
         id: crypto.randomUUID(),
         projectId: expenseForm.projectId,
         date: expenseForm.date,
-        kind: expenseForm.kind,
+        kind: resolvedExpenseKind,
         vendor: expenseForm.vendor,
-        category: expenseForm.category,
         memo: expenseForm.memo,
-        cardNumber: expenseForm.cardNumber,
+        cardNumber,
         supplyAmount,
         vatAmount,
         amount,
@@ -1655,6 +1686,8 @@ function App() {
     setSelectedProjectId(expenseForm.projectId)
     setExpenseForm((current) => ({
       ...current,
+      kind: '법인카드',
+      customKind: '',
       vendor: '',
       memo: '',
       cardNumber: '',
@@ -2640,10 +2673,8 @@ function App() {
                       <tbody>
                         {filteredExpenses.map((expense) => (
                           <tr key={expense.id}>
-                            <td className="expense-center">
-                              {formatTableDate(expense.date)}
-                            </td>
-                            <td className="expense-center">{expense.vendor}</td>
+                            <td>{formatTableDate(expense.date)}</td>
+                            <td>{expense.vendor}</td>
                             <td className="expense-content">{expense.memo || '-'}</td>
                             <td className="numeric-cell">
                               {formatNumber(getExpenseSupplyAmount(expense))}
@@ -2654,10 +2685,8 @@ function App() {
                             <td className="numeric-cell">
                               {formatNumber(expense.amount)}
                             </td>
-                            <td className="expense-center">{expense.kind}</td>
-                            <td className="expense-center">
-                              {expense.cardNumber || '-'}
-                            </td>
+                            <td>{normalizeExpenseKind(expense.kind)}</td>
+                            <td>{expense.cardNumber || '-'}</td>
                           </tr>
                         ))}
                         {filteredExpenses.length === 0 && (
@@ -2905,10 +2934,8 @@ function App() {
                             onChange={() => toggleSelectedExpense(expense.id)}
                           />
                         </td>
-                        <td className="expense-center">
-                          {formatTableDate(expense.date)}
-                        </td>
-                        <td className="expense-center">{expense.vendor}</td>
+                        <td>{formatTableDate(expense.date)}</td>
+                        <td>{expense.vendor}</td>
                         <td className="expense-content">{expense.memo || '-'}</td>
                         <td className="numeric-cell">
                           {formatNumber(getExpenseSupplyAmount(expense))}
@@ -2919,10 +2946,8 @@ function App() {
                         <td className="numeric-cell">
                           {formatNumber(expense.amount)}
                         </td>
-                        <td className="expense-center">{expense.kind}</td>
-                        <td className="expense-center">
-                          {expense.cardNumber || '-'}
-                        </td>
+                        <td>{normalizeExpenseKind(expense.kind)}</td>
+                        <td>{expense.cardNumber || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2985,7 +3010,6 @@ function App() {
                     <label>
                       사용일
                       <input
-                        className="center-field"
                         type="date"
                         value={expenseForm.date}
                         onChange={(event) =>
@@ -2999,25 +3023,42 @@ function App() {
                     <label>
                       구분
                       <select
-                        className="center-field"
                         value={expenseForm.kind}
                         onChange={(event) =>
                           setExpenseForm({
                             ...expenseForm,
-                            kind: event.target.value as Expense['kind'],
+                            kind: event.target.value,
+                            cardNumber: isTaxInvoiceKind(event.target.value)
+                              ? ''
+                              : expenseForm.cardNumber,
                           })
                         }
                       >
-                        <option>카드</option>
-                        <option>세금계산서</option>
+                        {expenseKindOptions.map((kind) => (
+                          <option key={kind}>{kind}</option>
+                        ))}
                       </select>
                     </label>
                   </div>
+                  {expenseForm.kind === '기타' && (
+                    <label>
+                      기타 구분
+                      <input
+                        value={expenseForm.customKind}
+                        onChange={(event) =>
+                          setExpenseForm({
+                            ...expenseForm,
+                            customKind: event.target.value,
+                          })
+                        }
+                        placeholder="구분 입력"
+                      />
+                    </label>
+                  )}
                   <div className="two-columns">
                     <label>
                       거래처
                       <input
-                        className="center-field"
                         value={expenseForm.vendor}
                         onChange={(event) =>
                           setExpenseForm({
@@ -3029,39 +3070,20 @@ function App() {
                       />
                     </label>
                     <label>
-                      항목
-                      <select
-                        value={expenseForm.category}
+                      카드번호
+                      <input
+                        disabled={isTaxInvoiceKind(expenseForm.kind)}
+                        value={expenseForm.cardNumber}
                         onChange={(event) =>
                           setExpenseForm({
                             ...expenseForm,
-                            category: event.target.value,
+                            cardNumber: event.target.value,
                           })
                         }
-                      >
-                        <option>자재비</option>
-                        <option>장비대</option>
-                        <option>외주비</option>
-                        <option>식대</option>
-                        <option>교통비</option>
-                        <option>기타</option>
-                      </select>
+                        placeholder="카드번호"
+                      />
                     </label>
                   </div>
-                  <label>
-                    카드번호
-                    <input
-                      className="center-field"
-                      value={expenseForm.cardNumber}
-                      onChange={(event) =>
-                        setExpenseForm({
-                          ...expenseForm,
-                          cardNumber: event.target.value,
-                        })
-                      }
-                      placeholder="카드번호"
-                    />
-                  </label>
                   <div className="three-columns amount-fields">
                     <label>
                       <span className="manual-field-label">
@@ -3148,7 +3170,6 @@ function App() {
                   <label>
                     내용
                     <input
-                      className="left-field"
                       value={expenseForm.memo}
                       onChange={(event) =>
                         setExpenseForm({
@@ -3156,7 +3177,7 @@ function App() {
                           memo: event.target.value,
                         })
                       }
-                      placeholder="사용 목적"
+                      placeholder="사용 내역"
                     />
                   </label>
                   <div className="modal-actions">
