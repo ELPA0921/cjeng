@@ -27,6 +27,9 @@ type Expense = {
   vendor: string
   category: string
   memo: string
+  cardNumber?: string
+  supplyAmount?: number
+  vatAmount?: number
   amount: number
 }
 
@@ -97,6 +100,9 @@ type ExpenseSortKey =
   | 'vendor'
   | 'category'
   | 'memo'
+  | 'cardNumber'
+  | 'supplyAmount'
+  | 'vatAmount'
   | 'amount'
 type WorkLogSortKey =
   | 'date'
@@ -444,6 +450,84 @@ const formatMoney = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value)
 
+const formatNumber = (value: number) =>
+  new Intl.NumberFormat('ko-KR', {
+    maximumFractionDigits: 0,
+  }).format(value)
+
+const formatTableDate = (value: string) =>
+  value ? `${value.replaceAll('-', '. ')}.` : ''
+
+const parseMoneyInput = (value: string) => Math.max(0, Number(value) || 0)
+const normalizeMoneyInput = (value: string) => value.replace(/[^\d]/g, '')
+const formatMoneyInput = (value: string) => {
+  const normalized = normalizeMoneyInput(value)
+  if (!normalized) return ''
+
+  return new Intl.NumberFormat('ko-KR').format(Number(normalized))
+}
+
+function getExpenseSupplyAmount(expense: Expense) {
+  return expense.supplyAmount ?? Math.round(expense.amount / 1.1)
+}
+
+function getExpenseVatAmount(expense: Expense) {
+  return expense.vatAmount ?? expense.amount - getExpenseSupplyAmount(expense)
+}
+
+function calculateExpenseAmountFields<
+  T extends {
+    supplyAmount: string
+    vatAmount: string
+    amount: string
+    manualSupplyAmount: boolean
+    manualVatAmount: boolean
+    manualAmount: boolean
+  },
+>(
+  source: 'supplyAmount' | 'vatAmount' | 'amount',
+  values: T,
+) {
+  let supplyAmount = parseMoneyInput(normalizeMoneyInput(values.supplyAmount))
+  let vatAmount = parseMoneyInput(normalizeMoneyInput(values.vatAmount))
+  let amount = parseMoneyInput(normalizeMoneyInput(values.amount))
+
+  if (source === 'supplyAmount') {
+    if (!values.manualVatAmount) {
+      vatAmount = Math.round(supplyAmount * 0.1)
+    }
+    if (!values.manualAmount) {
+      amount = supplyAmount + vatAmount
+    }
+  }
+
+  if (source === 'amount') {
+    if (!values.manualSupplyAmount && !values.manualVatAmount) {
+      supplyAmount = Math.round(amount / 1.1)
+      vatAmount = amount - supplyAmount
+    } else if (!values.manualSupplyAmount) {
+      supplyAmount = Math.max(0, amount - vatAmount)
+    } else if (!values.manualVatAmount) {
+      vatAmount = Math.max(0, amount - supplyAmount)
+    }
+  }
+
+  if (source === 'vatAmount') {
+    if (!values.manualAmount) {
+      amount = supplyAmount + vatAmount
+    } else if (!values.manualSupplyAmount) {
+      supplyAmount = Math.max(0, amount - vatAmount)
+    }
+  }
+
+  return {
+    ...values,
+    supplyAmount: String(supplyAmount),
+    vatAmount: String(vatAmount),
+    amount: String(amount),
+  }
+}
+
 const today = formatDateOnly(new Date())
 const currentYear = today.slice(0, 4)
 const defaultProjectId = defaultOrders[5].id
@@ -569,7 +653,20 @@ function getProjectStatus(order: Order) {
   return '진행중'
 }
 
+const adminCredentials = {
+  username: 'admin',
+  password: 'cjeng2026',
+}
+
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    () => localStorage.getItem('cost-app-authenticated') === 'true',
+  )
+  const [loginForm, setLoginForm] = useState({
+    username: '',
+    password: '',
+  })
+  const [loginError, setLoginError] = useState('')
   const [view, setView] = useState<View>('orders')
   const [orderYear, setOrderYear] = useState(currentYear)
   const [orders, setOrders] = useState(() =>
@@ -644,7 +741,13 @@ function App() {
     vendor: '',
     category: '자재비',
     memo: '',
+    cardNumber: '',
+    supplyAmount: '',
+    vatAmount: '',
     amount: '',
+    manualSupplyAmount: true,
+    manualVatAmount: false,
+    manualAmount: false,
   })
   const [workLogForm, setWorkLogForm] = useState({
     projectId: defaultProjectId,
@@ -699,6 +802,29 @@ function App() {
   useEffect(() => {
     localStorage.setItem('cost-app-vendor-edits', JSON.stringify(vendorEdits))
   }, [vendorEdits])
+
+  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (
+      loginForm.username.trim() === adminCredentials.username &&
+      loginForm.password === adminCredentials.password
+    ) {
+      localStorage.setItem('cost-app-authenticated', 'true')
+      setIsAuthenticated(true)
+      setLoginError('')
+      setLoginForm({ username: '', password: '' })
+      return
+    }
+
+    setLoginError('아이디 또는 비밀번호를 확인해주세요.')
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('cost-app-authenticated')
+    setIsAuthenticated(false)
+    setView('orders')
+  }
 
   const projectSummaries = useMemo(
     () =>
@@ -778,16 +904,38 @@ function App() {
     .filter((expense) => expense.projectId === selectedProjectId)
     .sort((a, b) => {
       const aValue =
-        expenseSort.key === 'amount' ? a.amount : String(a[expenseSort.key])
-      const bValue =
-        expenseSort.key === 'amount' ? b.amount : String(b[expenseSort.key])
-      const result =
         expenseSort.key === 'amount'
+          ? a.amount
+          : expenseSort.key === 'supplyAmount'
+            ? getExpenseSupplyAmount(a)
+            : expenseSort.key === 'vatAmount'
+              ? getExpenseVatAmount(a)
+              : String(a[expenseSort.key])
+      const bValue =
+        expenseSort.key === 'amount'
+          ? b.amount
+          : expenseSort.key === 'supplyAmount'
+            ? getExpenseSupplyAmount(b)
+            : expenseSort.key === 'vatAmount'
+              ? getExpenseVatAmount(b)
+              : String(b[expenseSort.key])
+      const result =
+        expenseSort.key === 'amount' ||
+        expenseSort.key === 'supplyAmount' ||
+        expenseSort.key === 'vatAmount'
           ? Number(aValue) - Number(bValue)
           : compareText(aValue, bValue)
 
       return expenseSort.direction === 'asc' ? result : -result
     })
+  const expenseTotals = filteredExpenses.reduce(
+    (totals, expense) => ({
+      supplyAmount: totals.supplyAmount + getExpenseSupplyAmount(expense),
+      vatAmount: totals.vatAmount + getExpenseVatAmount(expense),
+      amount: totals.amount + expense.amount,
+    }),
+    { supplyAmount: 0, vatAmount: 0, amount: 0 },
+  )
   const filteredWorkLogs = [...workLogs]
     .filter((workLog) => workLog.projectId === selectedProjectId)
     .sort((a, b) => {
@@ -1331,7 +1479,13 @@ function App() {
       vendor: expense.vendor,
       category: expense.category,
       memo: expense.memo,
+      cardNumber: expense.cardNumber ?? '',
+      supplyAmount: String(getExpenseSupplyAmount(expense)),
+      vatAmount: String(getExpenseVatAmount(expense)),
       amount: String(expense.amount),
+      manualSupplyAmount: true,
+      manualVatAmount: false,
+      manualAmount: false,
     })
     setIsExpenseModalOpen(true)
   }
@@ -1360,7 +1514,13 @@ function App() {
       date: today,
       vendor: '',
       memo: '',
+      cardNumber: '',
+      supplyAmount: '',
+      vatAmount: '',
       amount: '',
+      manualSupplyAmount: true,
+      manualVatAmount: false,
+      manualAmount: false,
     }))
   }
 
@@ -1372,14 +1532,69 @@ function App() {
       date: today,
       vendor: '',
       memo: '',
+      cardNumber: '',
+      supplyAmount: '',
+      vatAmount: '',
       amount: '',
+      manualSupplyAmount: true,
+      manualVatAmount: false,
+      manualAmount: false,
     }))
     setIsExpenseModalOpen(true)
   }
 
+  function updateExpenseAmountField(
+    field: 'supplyAmount' | 'vatAmount' | 'amount',
+    value: string,
+  ) {
+    setExpenseForm((current) =>
+      calculateExpenseAmountFields(field, {
+        ...current,
+        [field]: normalizeMoneyInput(value),
+      }),
+    )
+  }
+
+  function toggleExpenseAmountManual(
+    field: 'manualSupplyAmount' | 'manualVatAmount' | 'manualAmount',
+    checked: boolean,
+  ) {
+    setExpenseForm((current) => {
+      const next = {
+        ...current,
+        [field]: checked,
+      }
+
+      if (checked && field === 'manualAmount') {
+        next.manualSupplyAmount = false
+        next.manualVatAmount = false
+      }
+
+      if (checked && field === 'manualSupplyAmount') {
+        next.manualAmount = false
+      }
+
+      if (checked) return next
+
+      return calculateExpenseAmountFields(
+        next.manualAmount && !next.manualSupplyAmount ? 'amount' : 'supplyAmount',
+        next,
+      )
+    })
+  }
+
   function addExpense(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const amount = Number(expenseForm.amount)
+    const calculatedExpense = calculateExpenseAmountFields('supplyAmount', {
+      ...expenseForm,
+    })
+    const supplyAmount = parseMoneyInput(
+      normalizeMoneyInput(calculatedExpense.supplyAmount),
+    )
+    const vatAmount = parseMoneyInput(
+      normalizeMoneyInput(calculatedExpense.vatAmount),
+    )
+    const amount = parseMoneyInput(normalizeMoneyInput(calculatedExpense.amount))
 
     if (!expenseForm.vendor.trim() || !amount) return
 
@@ -1395,6 +1610,9 @@ function App() {
                 vendor: expenseForm.vendor,
                 category: expenseForm.category,
                 memo: expenseForm.memo,
+                cardNumber: expenseForm.cardNumber,
+                supplyAmount,
+                vatAmount,
                 amount,
               }
             : expense,
@@ -1407,6 +1625,9 @@ function App() {
         ...current,
         vendor: '',
         memo: '',
+        cardNumber: '',
+        supplyAmount: '',
+        vatAmount: '',
         amount: '',
       }))
       setIsExpenseModalOpen(false)
@@ -1422,6 +1643,9 @@ function App() {
         vendor: expenseForm.vendor,
         category: expenseForm.category,
         memo: expenseForm.memo,
+        cardNumber: expenseForm.cardNumber,
+        supplyAmount,
+        vatAmount,
         amount,
       },
       ...current,
@@ -1431,6 +1655,9 @@ function App() {
       ...current,
       vendor: '',
       memo: '',
+      cardNumber: '',
+      supplyAmount: '',
+      vatAmount: '',
       amount: '',
     }))
     setIsExpenseModalOpen(false)
@@ -1506,13 +1733,65 @@ function App() {
     setIsWorkLogModalOpen(false)
   }
 
+  if (!isAuthenticated) {
+    return (
+      <main className="login-shell">
+        <section className="login-panel" aria-label="관리자 로그인">
+          <img className="login-logo" src="/cj-logo-white.jpg" alt="창조이엔지" />
+          <form className="login-form" onSubmit={handleLogin}>
+            <label>
+              아이디
+              <input
+                autoComplete="username"
+                name="username"
+                required
+                type="text"
+                value={loginForm.username}
+                onChange={(event) =>
+                  setLoginForm((current) => ({
+                    ...current,
+                    username: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <label>
+              비밀번호
+              <input
+                autoComplete="current-password"
+                name="password"
+                required
+                type="password"
+                value={loginForm.password}
+                onChange={(event) =>
+                  setLoginForm((current) => ({
+                    ...current,
+                    password: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            {loginError && <p className="login-error">{loginError}</p>}
+            <button className="primary-button" type="submit">
+              로그인
+            </button>
+          </form>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
-        <div>
-          <p className="eyebrow">(주)창조이엔지</p>
-          <h1>공사 관리 WEB</h1>
-        </div>
+        <button
+          className="brand-home"
+          type="button"
+          aria-label="홈으로 이동"
+          onClick={() => setView('orders')}
+        >
+          <img src="/cj-logo-white.jpg" alt="창조이엔지" />
+        </button>
 
         <nav className="nav-tabs" aria-label="주요 메뉴">
           <button
@@ -1551,6 +1830,10 @@ function App() {
             거래처내역
           </button>
         </nav>
+
+        <button className="logout-button" type="button" onClick={handleLogout}>
+          로그아웃
+        </button>
       </aside>
 
       <section className="workspace">
@@ -1735,7 +2018,6 @@ function App() {
                             type="checkbox"
                             onChange={toggleAllVendors}
                           />
-                          <span>선택</span>
                         </label>
                       </th>
                       <th>{renderVendorSortButton('company', '업체명')}</th>
@@ -1980,7 +2262,6 @@ function App() {
                             type="checkbox"
                             onChange={toggleAllOrders}
                           />
-                          <span>선택</span>
                         </label>
                       </th>
                       <th>{renderOrderSortButton('year', '년도')}</th>
@@ -2340,31 +2621,64 @@ function App() {
                     <table>
                       <thead>
                         <tr>
-                          <th>{renderExpenseSortButton('date', '사용일')}</th>
-                          <th>{renderExpenseSortButton('kind', '구분')}</th>
+                          <th>{renderExpenseSortButton('date', '일자')}</th>
                           <th>{renderExpenseSortButton('vendor', '거래처')}</th>
-                          <th>{renderExpenseSortButton('category', '항목')}</th>
-                          <th>{renderExpenseSortButton('memo', '메모')}</th>
+                          <th>{renderExpenseSortButton('memo', '내용')}</th>
+                          <th>
+                            {renderExpenseSortButton('supplyAmount', '공급가액')}
+                          </th>
+                          <th>{renderExpenseSortButton('vatAmount', '부가세')}</th>
                           <th>{renderExpenseSortButton('amount', '금액')}</th>
+                          <th>{renderExpenseSortButton('kind', '구분')}</th>
+                          <th>{renderExpenseSortButton('cardNumber', '카드번호')}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredExpenses.map((expense) => (
                           <tr key={expense.id}>
-                            <td>{expense.date}</td>
-                            <td>{expense.kind}</td>
-                            <td>{expense.vendor}</td>
-                            <td>{expense.category}</td>
-                            <td>{expense.memo || '-'}</td>
-                            <td>{formatMoney(expense.amount)}</td>
+                            <td className="expense-center">
+                              {formatTableDate(expense.date)}
+                            </td>
+                            <td className="expense-center">{expense.vendor}</td>
+                            <td className="expense-content">{expense.memo || '-'}</td>
+                            <td className="numeric-cell">
+                              {formatNumber(getExpenseSupplyAmount(expense))}
+                            </td>
+                            <td className="numeric-cell">
+                              {formatNumber(getExpenseVatAmount(expense))}
+                            </td>
+                            <td className="numeric-cell">
+                              {formatNumber(expense.amount)}
+                            </td>
+                            <td className="expense-center">{expense.kind}</td>
+                            <td className="expense-center">
+                              {expense.cardNumber || '-'}
+                            </td>
                           </tr>
                         ))}
                         {filteredExpenses.length === 0 && (
                           <tr>
-                            <td colSpan={6}>등록된 지출내역이 없습니다.</td>
+                            <td colSpan={8}>등록된 지출내역이 없습니다.</td>
                           </tr>
                         )}
                       </tbody>
+                      {filteredExpenses.length > 0 && (
+                        <tfoot>
+                          <tr>
+                            <td colSpan={3}>총합</td>
+                            <td className="numeric-cell">
+                              {formatNumber(expenseTotals.supplyAmount)}
+                            </td>
+                            <td className="numeric-cell">
+                              {formatNumber(expenseTotals.vatAmount)}
+                            </td>
+                            <td className="numeric-cell">
+                              {formatNumber(expenseTotals.amount)}
+                            </td>
+                            <td colSpan={2}></td>
+                          </tr>
+                        </tfoot>
+                      )}
                     </table>
                   </div>
                 </>
@@ -2564,15 +2878,16 @@ function App() {
                             type="checkbox"
                             onChange={toggleAllExpenses}
                           />
-                          <span>선택</span>
                         </label>
                       </th>
                       <th>{renderExpenseSortButton('date', '일자')}</th>
-                      <th>{renderExpenseSortButton('kind', '구분')}</th>
                       <th>{renderExpenseSortButton('vendor', '거래처')}</th>
-                      <th>{renderExpenseSortButton('category', '항목')}</th>
-                      <th>{renderExpenseSortButton('memo', '메모')}</th>
+                      <th>{renderExpenseSortButton('memo', '내용')}</th>
+                      <th>{renderExpenseSortButton('supplyAmount', '공급가액')}</th>
+                      <th>{renderExpenseSortButton('vatAmount', '부가세')}</th>
                       <th>{renderExpenseSortButton('amount', '금액')}</th>
+                      <th>{renderExpenseSortButton('kind', '구분')}</th>
+                      <th>{renderExpenseSortButton('cardNumber', '카드번호')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2586,15 +2901,44 @@ function App() {
                             onChange={() => toggleSelectedExpense(expense.id)}
                           />
                         </td>
-                        <td>{expense.date}</td>
-                        <td>{expense.kind}</td>
-                        <td>{expense.vendor}</td>
-                        <td>{expense.category}</td>
-                        <td>{expense.memo || '-'}</td>
-                        <td>{formatMoney(expense.amount)}</td>
+                        <td className="expense-center">
+                          {formatTableDate(expense.date)}
+                        </td>
+                        <td className="expense-center">{expense.vendor}</td>
+                        <td className="expense-content">{expense.memo || '-'}</td>
+                        <td className="numeric-cell">
+                          {formatNumber(getExpenseSupplyAmount(expense))}
+                        </td>
+                        <td className="numeric-cell">
+                          {formatNumber(getExpenseVatAmount(expense))}
+                        </td>
+                        <td className="numeric-cell">
+                          {formatNumber(expense.amount)}
+                        </td>
+                        <td className="expense-center">{expense.kind}</td>
+                        <td className="expense-center">
+                          {expense.cardNumber || '-'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
+                  {filteredExpenses.length > 0 && (
+                    <tfoot>
+                      <tr>
+                        <td colSpan={4}>총합</td>
+                        <td className="numeric-cell">
+                          {formatNumber(expenseTotals.supplyAmount)}
+                        </td>
+                        <td className="numeric-cell">
+                          {formatNumber(expenseTotals.vatAmount)}
+                        </td>
+                        <td className="numeric-cell">
+                          {formatNumber(expenseTotals.amount)}
+                        </td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </div>
@@ -2637,6 +2981,7 @@ function App() {
                     <label>
                       사용일
                       <input
+                        className="center-field"
                         type="date"
                         value={expenseForm.date}
                         onChange={(event) =>
@@ -2650,6 +2995,7 @@ function App() {
                     <label>
                       구분
                       <select
+                        className="center-field"
                         value={expenseForm.kind}
                         onChange={(event) =>
                           setExpenseForm({
@@ -2667,6 +3013,7 @@ function App() {
                     <label>
                       거래처
                       <input
+                        className="center-field"
                         value={expenseForm.vendor}
                         onChange={(event) =>
                           setExpenseForm({
@@ -2698,23 +3045,106 @@ function App() {
                     </label>
                   </div>
                   <label>
-                    금액
+                    카드번호
                     <input
-                      min="0"
-                      type="number"
-                      value={expenseForm.amount}
+                      className="center-field"
+                      value={expenseForm.cardNumber}
                       onChange={(event) =>
                         setExpenseForm({
                           ...expenseForm,
-                          amount: event.target.value,
+                          cardNumber: event.target.value,
                         })
                       }
-                      placeholder="금액 입력"
+                      placeholder="카드번호"
                     />
                   </label>
+                  <div className="three-columns amount-fields">
+                    <label>
+                      <span className="manual-field-label">
+                        공급가액
+                        <input
+                          aria-label="공급가액 직접 입력"
+                          checked={expenseForm.manualSupplyAmount}
+                          type="checkbox"
+                          onChange={(event) =>
+                            toggleExpenseAmountManual(
+                              'manualSupplyAmount',
+                              event.target.checked,
+                            )
+                          }
+                        />
+                      </span>
+                      <input
+                        disabled={!expenseForm.manualSupplyAmount}
+                        inputMode="numeric"
+                        type="text"
+                        value={formatMoneyInput(expenseForm.supplyAmount)}
+                        onChange={(event) =>
+                          updateExpenseAmountField(
+                            'supplyAmount',
+                            event.target.value,
+                          )
+                        }
+                        placeholder="공급가액"
+                      />
+                    </label>
+                    <label>
+                      <span className="manual-field-label">
+                        부가세
+                        <input
+                          aria-label="부가세 직접 입력"
+                          checked={expenseForm.manualVatAmount}
+                          type="checkbox"
+                          onChange={(event) =>
+                            toggleExpenseAmountManual(
+                              'manualVatAmount',
+                              event.target.checked,
+                            )
+                          }
+                        />
+                      </span>
+                      <input
+                        disabled={!expenseForm.manualVatAmount}
+                        inputMode="numeric"
+                        type="text"
+                        value={formatMoneyInput(expenseForm.vatAmount)}
+                        onChange={(event) =>
+                          updateExpenseAmountField('vatAmount', event.target.value)
+                        }
+                        placeholder="부가세"
+                      />
+                    </label>
+                    <label>
+                      <span className="manual-field-label">
+                        금액
+                        <input
+                          aria-label="금액 직접 입력"
+                          checked={expenseForm.manualAmount}
+                          type="checkbox"
+                          onChange={(event) =>
+                            toggleExpenseAmountManual(
+                              'manualAmount',
+                              event.target.checked,
+                            )
+                          }
+                        />
+                      </span>
+                      <input
+                        disabled={!expenseForm.manualAmount}
+                        inputMode="numeric"
+                        type="text"
+                        value={formatMoneyInput(expenseForm.amount)}
+                        onChange={(event) =>
+                          updateExpenseAmountField('amount', event.target.value)
+                        }
+                        placeholder="금액"
+                      />
+                    </label>
+                  </div>
                   <label>
-                    메모
+                    내용
                     <input
+                      className="left-field"
                       value={expenseForm.memo}
                       onChange={(event) =>
                         setExpenseForm({
@@ -2777,27 +3207,29 @@ function App() {
                       }
                     />
                   </label>
-                  <button
-                    className="ghost-button"
-                    type="button"
-                    onClick={() => setWorkLogMonth(moveMonth(workLogMonth, -1))}
-                  >
-                    이전
-                  </button>
-                  <button
-                    className="ghost-button"
-                    type="button"
-                    onClick={() => setWorkLogMonth(today.slice(0, 7))}
-                  >
-                    오늘
-                  </button>
-                  <button
-                    className="ghost-button"
-                    type="button"
-                    onClick={() => setWorkLogMonth(moveMonth(workLogMonth, 1))}
-                  >
-                    다음
-                  </button>
+                  <div className="calendar-nav-buttons">
+                    <button
+                      className="ghost-button"
+                      type="button"
+                      onClick={() => setWorkLogMonth(moveMonth(workLogMonth, -1))}
+                    >
+                      이전
+                    </button>
+                    <button
+                      className="ghost-button"
+                      type="button"
+                      onClick={() => setWorkLogMonth(today.slice(0, 7))}
+                    >
+                      오늘
+                    </button>
+                    <button
+                      className="ghost-button"
+                      type="button"
+                      onClick={() => setWorkLogMonth(moveMonth(workLogMonth, 1))}
+                    >
+                      다음
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="calendar-grid">
@@ -2891,9 +3323,9 @@ function App() {
                   </button>
                 ))}
               </div>
-              <label>
-                공사
+              <label className="project-picker">
                 <select
+                  aria-label="공사 선택"
                   value={selectedProjectId}
                   onChange={(event) => selectProject(event.target.value)}
                 >

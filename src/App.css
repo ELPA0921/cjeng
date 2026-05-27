@@ -6,6 +6,54 @@
   color: #1f2933;
 }
 
+.login-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+  background: #eef1f5;
+  color: #1f2933;
+}
+
+.login-panel {
+  width: min(100%, 420px);
+  padding: 28px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 38px rgba(16, 42, 67, 0.12);
+}
+
+.login-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-bottom: 24px;
+}
+
+.login-form {
+  display: grid;
+  gap: 16px;
+}
+
+.login-form label {
+  display: grid;
+  gap: 8px;
+  color: #334e68;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.login-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #ffe8e8;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -26,6 +74,41 @@
 
 .sidebar .eyebrow {
   color: #9fb3c8;
+}
+
+.brand-home {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.brand-home img {
+  display: block;
+  width: min(100%, 250px);
+  height: auto;
+  max-height: 88px;
+  object-fit: contain;
+}
+
+.logout-button {
+  min-height: 42px;
+  margin-top: auto;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f7fafc;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.logout-button:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .sidebar h1,
@@ -361,6 +444,7 @@ table {
 }
 
 .sort-button {
+  width: 100%;
   border: 0;
   background: transparent;
   color: #486581;
@@ -369,7 +453,7 @@ table {
   font-size: 12px;
   font-weight: 800;
   padding: 0;
-  text-align: left;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -418,14 +502,13 @@ table {
 }
 
 table .check-cell {
-  width: 68px;
-  min-width: 68px;
+  width: 44px;
+  min-width: 44px;
   text-align: center;
 }
 
 .select-all-cell {
   display: inline-flex;
-  gap: 6px;
   align-items: center;
   justify-content: center;
 }
@@ -460,12 +543,34 @@ th {
   color: #627d98;
   font-size: 12px;
   font-weight: 800;
+  text-align: center;
   white-space: nowrap;
 }
 
 td {
   color: #243b53;
   font-size: 14px;
+}
+
+.numeric-cell {
+  text-align: right;
+}
+
+.expense-center,
+.center-field {
+  text-align: center;
+}
+
+.expense-content,
+.left-field {
+  text-align: left;
+}
+
+tfoot td {
+  border-top: 2px solid #bcccdc;
+  background: #f8fafc;
+  color: #102a43;
+  font-weight: 900;
 }
 
 tr.selected-row td {
@@ -523,6 +628,29 @@ tr.selected-row td {
   gap: 12px;
 }
 
+.amount-fields {
+  align-items: end;
+}
+
+.manual-field-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.manual-field-label input[type='checkbox'] {
+  width: 18px;
+  min-height: 18px;
+  accent-color: #0b806f;
+  cursor: pointer;
+  padding: 0;
+}
+
+.amount-fields input[type='text'] {
+  text-align: right;
+}
+
 .worklog-toolbar {
   display: flex;
   justify-content: space-between;
@@ -547,6 +675,12 @@ tr.selected-row td {
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
+}
+
+.calendar-nav-buttons {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(48px, 1fr));
+  gap: 8px;
 }
 
 .project-year-switch {
@@ -817,6 +951,13 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(36, 159, 135, 0.14);
 }
 
+input:disabled {
+  border-color: #d9e2ec;
+  background: #f0f4f8;
+  color: #627d98;
+  cursor: not-allowed;
+}
+
 .primary-button {
   min-height: 44px;
   border-radius: 6px;
@@ -1039,21 +1180,56 @@ select:focus {
   }
 
   .calendar-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 
   .calendar-actions,
   .date-jump-control {
     align-items: stretch;
-    flex-direction: column;
     grid-template-columns: 1fr;
   }
 
+  .calendar-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-nav-buttons {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .calendar-nav-buttons .ghost-button {
+    min-height: 34px;
+    padding: 0 8px;
+  }
+
   .calendar-weekday {
-    display: none;
+    display: block;
+    min-height: 28px;
+    padding: 7px 2px;
+    font-size: 11px;
   }
 
   .calendar-day {
-    min-height: 92px;
+    gap: 3px;
+    min-height: 58px;
+    padding: 5px 3px;
+  }
+
+  .calendar-date-button {
+    font-size: 11px;
+  }
+
+  .calendar-day div {
+    gap: 2px;
+  }
+
+  .calendar-entry,
+  .calendar-more {
+    border-radius: 4px;
+    font-size: 9px;
+    line-height: 1.15;
+    padding: 2px 3px;
   }
 }
