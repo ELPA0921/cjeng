@@ -79,19 +79,22 @@
 .brand-home {
   display: flex;
   align-items: center;
+  justify-content: center;
   width: 100%;
-  min-height: 72px;
-  padding: 10px 0;
-  border: 0;
-  background: transparent;
+  min-height: 86px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 24px rgba(16, 42, 67, 0.18);
   cursor: pointer;
 }
 
 .brand-home img {
   display: block;
-  width: min(100%, 250px);
+  width: min(100%, 232px);
   height: auto;
-  max-height: 88px;
+  max-height: 62px;
   object-fit: contain;
 }
 
