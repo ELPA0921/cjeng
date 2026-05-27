@@ -64,6 +64,15 @@ type PurchaseOrder = {
   status: '요청' | '발주완료' | '입고완료'
 }
 
+type ExportCell = string | number
+
+type ExportTable = {
+  columns: string[]
+  rows: ExportCell[][]
+  title: string
+  totals?: ExportCell[][]
+}
+
 type View =
   | 'home'
   | 'orders'
@@ -71,6 +80,7 @@ type View =
   | 'dashboard'
   | 'expenses'
   | 'worklogs'
+  | 'worklogList'
   | 'contacts'
 type ProjectDetailTab = 'worklogs' | 'expenses' | 'purchases'
 type ContactTab = 'purchase' | 'order'
@@ -106,6 +116,7 @@ type ExpenseSortKey =
   | 'amount'
 type WorkLogSortKey =
   | 'date'
+  | 'projectOrderNo'
   | 'worker'
   | 'workerType'
   | 'startTime'
@@ -458,6 +469,107 @@ const formatNumber = (value: number) =>
 const formatTableDate = (value: string) =>
   value ? `${value.replaceAll('-', '. ')}.` : ''
 
+const escapeHtml = (value: ExportCell) =>
+  String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+
+const makeExportFileName = (title: string) =>
+  `${title.replace(/[\\/:*?"<>|]/g, '_')}_${formatDateOnly(new Date())}`
+
+const buildExportTableHtml = (table: ExportTable) => `
+  <table>
+    <thead>
+      <tr>${table.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join('')}</tr>
+    </thead>
+    <tbody>
+      ${table.rows
+        .map(
+          (row) =>
+            `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`,
+        )
+        .join('')}
+    </tbody>
+    ${
+      table.totals?.length
+        ? `<tfoot>${table.totals
+            .map(
+              (row) =>
+                `<tr>${row
+                  .map((cell) => `<td>${escapeHtml(cell)}</td>`)
+                  .join('')}</tr>`,
+            )
+            .join('')}</tfoot>`
+        : ''
+    }
+  </table>
+`
+
+const exportTableToExcel = (table: ExportTable) => {
+  const html = `<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          table { border-collapse: collapse; }
+          th, td { border: 1px solid #999; padding: 6px 8px; mso-number-format:"\\@"; }
+          th { background: #eaf2f8; font-weight: 700; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <h3>${escapeHtml(table.title)}</h3>
+        ${buildExportTableHtml(table)}
+      </body>
+    </html>`
+  const blob = new Blob(['\ufeff', html], {
+    type: 'application/vnd.ms-excel;charset=utf-8;',
+  })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `${makeExportFileName(table.title)}.xls`
+  link.click()
+  URL.revokeObjectURL(link.href)
+}
+
+const printExportTable = (table: ExportTable) => {
+  const printWindow = window.open('', '_blank', 'width=1200,height=800')
+  if (!printWindow) return
+
+  printWindow.document.write(`<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(table.title)}</title>
+        <style>
+          @page { size: A4 landscape; margin: 10mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; color: #111827; font-family: Arial, "Malgun Gothic", sans-serif; }
+          h1 { margin: 0 0 10px; font-size: 18px; }
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px; }
+          th, td { border: 1px solid #9ca3af; padding: 5px 6px; text-align: center; word-break: keep-all; overflow-wrap: anywhere; }
+          th { background: #eef2f7; font-weight: 700; }
+          td { vertical-align: middle; }
+          tfoot td { background: #f7f8fa; font-weight: 700; }
+          @media print { button { display: none; } }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(table.title)}</h1>
+        ${buildExportTableHtml(table)}
+        <script>
+          window.addEventListener('load', () => {
+            window.focus();
+            window.print();
+          });
+        </script>
+      </body>
+    </html>`)
+  printWindow.document.close()
+}
+
 const expenseKindOptions = [
   '법인카드',
   '전자세금계산서',
@@ -465,6 +577,10 @@ const expenseKindOptions = [
   '개인카드',
   '기타',
 ]
+
+const calendarMonthOptions = Array.from({ length: 12 }, (_, index) =>
+  String(index + 1).padStart(2, '0'),
+)
 
 function normalizeExpenseKind(kind: string) {
   if (kind === '카드') return '법인카드'
@@ -687,6 +803,8 @@ function App() {
   })
   const [loginError, setLoginError] = useState('')
   const [view, setView] = useState<View>('home')
+  const [viewHistory, setViewHistory] = useState<View[]>([])
+  const [viewFuture, setViewFuture] = useState<View[]>([])
   const [orderYear, setOrderYear] = useState(currentYear)
   const [orders, setOrders] = useState(() =>
     loadStoredData('cost-app-orders', defaultOrders),
@@ -742,6 +860,7 @@ function App() {
     date: string
     projectId: string
   } | null>(null)
+  const [workLogListYear, setWorkLogListYear] = useState('all')
   const [projectSort, setProjectSort] = useState<{
     key: ProjectSortKey
     direction: SortDirection
@@ -843,6 +962,38 @@ function App() {
     localStorage.removeItem('cost-app-authenticated')
     setIsAuthenticated(false)
     setView('home')
+    setViewHistory([])
+    setViewFuture([])
+  }
+
+  const navigateTo = (nextView: View) => {
+    if (nextView === view) return
+
+    setViewHistory((current) => [...current, view])
+    setViewFuture([])
+    setView(nextView)
+  }
+
+  const goBack = () => {
+    setViewHistory((current) => {
+      const previousView = current.at(-1)
+      if (!previousView) return current
+
+      setViewFuture((future) => [view, ...future])
+      setView(previousView)
+      return current.slice(0, -1)
+    })
+  }
+
+  const goForward = () => {
+    setViewFuture((current) => {
+      const nextView = current[0]
+      if (!nextView) return current
+
+      setViewHistory((history) => [...history, view])
+      setView(nextView)
+      return current.slice(1)
+    })
   }
 
   const projectSummaries = useMemo(
@@ -958,8 +1109,8 @@ function App() {
   const filteredWorkLogs = [...workLogs]
     .filter((workLog) => workLog.projectId === selectedProjectId)
     .sort((a, b) => {
-      const aValue = a[workLogSort.key]
-      const bValue = b[workLogSort.key]
+      const aValue = getWorkLogSortValue(a, workLogSort.key)
+      const bValue = getWorkLogSortValue(b, workLogSort.key)
       const result =
         typeof aValue === 'number' && typeof bValue === 'number'
           ? aValue - bValue
@@ -967,6 +1118,13 @@ function App() {
 
       return workLogSort.direction === 'asc' ? result : -result
     })
+  const filteredWorkLogTotals = filteredWorkLogs.reduce(
+    (totals, workLog) => ({
+      days: totals.days.add(workLog.date),
+      hours: totals.hours + workLog.hours,
+    }),
+    { days: new Set<string>(), hours: 0 },
+  )
   const filteredPurchaseOrders = [...purchaseOrders]
     .filter((purchaseOrder) => purchaseOrder.projectId === selectedProjectId)
     .sort((a, b) => {
@@ -1008,8 +1166,8 @@ function App() {
             workLog.projectId === selectedCalendarWork.projectId,
         )
         .sort((a, b) => {
-          const aValue = a[workLogSort.key]
-          const bValue = b[workLogSort.key]
+          const aValue = getWorkLogSortValue(a, workLogSort.key)
+          const bValue = getWorkLogSortValue(b, workLogSort.key)
           const result =
             typeof aValue === 'number' && typeof bValue === 'number'
               ? aValue - bValue
@@ -1023,6 +1181,27 @@ function App() {
         (project) => project.id === selectedCalendarWork.projectId,
       )
     : undefined
+  const workLogYears = Array.from(
+    new Set(workLogs.map((workLog) => workLog.date.slice(0, 4)).filter(Boolean)),
+  ).sort((a, b) => compareText(b, a))
+  const workLogCalendarYears = Array.from(
+    new Set([...orderYears, ...workLogYears, workLogMonth.slice(0, 4)]),
+  ).sort((a, b) => compareText(b, a))
+  const filteredWorkLogsForList = [...workLogs]
+    .filter(
+      (workLog) =>
+        workLogListYear === 'all' || workLog.date.startsWith(workLogListYear),
+    )
+    .sort((a, b) => {
+      const aValue = getWorkLogSortValue(a, workLogSort.key)
+      const bValue = getWorkLogSortValue(b, workLogSort.key)
+      const result =
+        typeof aValue === 'number' && typeof bValue === 'number'
+          ? aValue - bValue
+          : compareText(aValue, bValue)
+
+      return workLogSort.direction === 'asc' ? result : -result
+    })
   const activeVendorContacts =
     contactTab === 'purchase' ? purchaseVendorContacts : orderVendorContacts
   const vendorSearchQuery = normalizeSearchText(vendorSearchText)
@@ -1077,6 +1256,203 @@ function App() {
   const allExpensesSelected =
     filteredExpenses.length > 0 &&
     filteredExpenses.every((expense) => selectedExpenseIds.includes(expense.id))
+  const ordersExportTable: ExportTable = {
+    title: `${orderYear}년 수주대장`,
+    columns: [
+      '년도',
+      '수주번호',
+      '수주일자',
+      '준공예정일',
+      '상태',
+      '담당자',
+      '수주처1',
+      '수주처2',
+      '공사지역',
+      '공사명',
+    ],
+    rows: filteredOrders.map((order) => [
+      getOrderYear(order),
+      order.orderNo,
+      formatTableDate(order.orderDate),
+      formatTableDate(order.expectedCompletionDate),
+      getProjectStatus(order),
+      order.manager,
+      order.client1,
+      order.client2,
+      order.region,
+      order.projectName,
+    ]),
+  }
+  const dashboardExportTable: ExportTable = {
+    title: `${orderYear}년 공사별 현황`,
+    columns: [
+      '수주번호',
+      '공사명',
+      '수주처',
+      '공사지역',
+      '지출금액',
+      '작업공수',
+      '발주금액',
+    ],
+    rows: yearlyProjectSummaries.map((project) => [
+      project.orderNo,
+      project.projectName,
+      project.client1,
+      project.region,
+      formatNumber(project.cost),
+      project.manDays.toFixed(2),
+      formatNumber(project.purchaseAmount),
+    ]),
+  }
+  const expensesExportTable: ExportTable = {
+    title: `${selectedProject?.orderNo ?? ''} 지출내역`,
+    columns: [
+      '일자',
+      '거래처',
+      '내용',
+      '공급가액',
+      '부가세',
+      '금액',
+      '구분',
+      '카드번호',
+    ],
+    rows: filteredExpenses.map((expense) => [
+      formatTableDate(expense.date),
+      expense.vendor,
+      expense.memo || '-',
+      formatNumber(getExpenseSupplyAmount(expense)),
+      formatNumber(getExpenseVatAmount(expense)),
+      formatNumber(expense.amount),
+      normalizeExpenseKind(expense.kind),
+      expense.cardNumber || '-',
+    ]),
+    totals:
+      filteredExpenses.length > 0
+        ? [
+            [
+              '총합',
+              '',
+              '',
+              formatNumber(expenseTotals.supplyAmount),
+              formatNumber(expenseTotals.vatAmount),
+              formatNumber(expenseTotals.amount),
+              '',
+              '',
+            ],
+          ]
+        : undefined,
+  }
+  const selectedWorkLogsExportTable: ExportTable = {
+    title: `${selectedProject?.orderNo ?? ''} 작업일보`,
+    columns: [
+      '일자',
+      '작업자',
+      '구분',
+      '시작',
+      '종료',
+      '잔업',
+      '장소',
+      '작업내용',
+      '비고',
+      '시간',
+      '공수',
+    ],
+    rows: filteredWorkLogs.map((workLog) => [
+      formatTableDate(workLog.date),
+      workLog.worker,
+      workLog.workerType,
+      workLog.startTime,
+      workLog.endTime,
+      workLog.overtimeHours.toFixed(1),
+      workLog.location || '-',
+      workLog.task,
+      workLog.note || '-',
+      workLog.hours.toFixed(1),
+      (workLog.hours / 8).toFixed(2),
+    ]),
+    totals:
+      filteredWorkLogs.length > 0
+        ? [
+            [
+              '총합',
+              '',
+              '',
+              '',
+              '',
+              '',
+              '',
+              `작업일수 ${filteredWorkLogTotals.days.size}`,
+              '',
+              filteredWorkLogTotals.hours.toFixed(1),
+              (filteredWorkLogTotals.hours / 8).toFixed(2),
+            ],
+          ]
+        : undefined,
+  }
+  const allWorkLogsExportTable: ExportTable = {
+    title: '작업일보 전체조회',
+    columns: [
+      '작업일',
+      '작업자',
+      '구분',
+      '작업시작',
+      '작업종료',
+      '잔업시간',
+      '작업장소',
+      '작업내용',
+      '수주번호',
+      '비고',
+      '작업시간',
+      '공수',
+    ],
+    rows: filteredWorkLogsForList.map((workLog) => {
+      const project = projectSummaries.find((item) => item.id === workLog.projectId)
+
+      return [
+        formatTableDate(workLog.date),
+        workLog.worker,
+        workLog.workerType,
+        workLog.startTime,
+        workLog.endTime,
+        workLog.overtimeHours.toFixed(1),
+        workLog.location || '-',
+        workLog.task,
+        project?.orderNo ?? '-',
+        workLog.note || '-',
+        workLog.hours.toFixed(1),
+        (workLog.hours / 8).toFixed(2),
+      ]
+    }),
+  }
+  const contactsExportTable: ExportTable = {
+    title: contactTab === 'purchase' ? '물품구입처' : '발주처',
+    columns:
+      contactTab === 'purchase'
+        ? ['업체명', '이름', 'H.P', 'TEL', 'FAX', 'E-Mail', '주소', '취급품목']
+        : ['업체명', '이름', 'H.P', 'TEL', 'FAX', 'E-Mail', '주소'],
+    rows: vendorRows.map(({ contact }) =>
+      contactTab === 'purchase'
+        ? [
+            contact.company || '-',
+            contact.contact || '-',
+            contact.mobile || '-',
+            contact.tel || '-',
+            contact.fax || '-',
+            contact.email || '-',
+            contact.address || '-',
+            contact.item || '-',
+          ]
+        : [
+            contact.company || '-',
+            contact.contact || '-',
+            contact.mobile || '-',
+            contact.tel || '-',
+            contact.fax || '-',
+            contact.email || '-',
+            contact.address || '-',
+          ],
+    ),
+  }
 
   function getVendorContactKey(contact: VendorContact, index: number) {
     return [
@@ -1128,13 +1504,16 @@ function App() {
     }
   }
 
-  function jumpToWorkLogDate(date: string) {
-    if (!date) return
+  function updateWorkLogCalendarMonth(nextYear: string, nextMonth: string) {
+    const nextWorkLogMonth = `${nextYear}-${nextMonth}`
+    const currentDay = Number(workLogForm.date.slice(8, 10)) || 1
+    const lastDay = new Date(Number(nextYear), Number(nextMonth), 0).getDate()
+    const nextDay = String(Math.min(currentDay, lastDay)).padStart(2, '0')
 
-    setWorkLogMonth(date.slice(0, 7))
+    setWorkLogMonth(nextWorkLogMonth)
     setWorkLogForm((current) => ({
       ...current,
-      date,
+      date: `${nextWorkLogMonth}-${nextDay}`,
     }))
   }
 
@@ -1254,6 +1633,29 @@ function App() {
     )
   }
 
+  function renderOutputButtons(table: ExportTable) {
+    return (
+      <div className="output-actions">
+        <button
+          className="ghost-button compact-button"
+          disabled={table.rows.length === 0}
+          type="button"
+          onClick={() => exportTableToExcel(table)}
+        >
+          Excel 내보내기
+        </button>
+        <button
+          className="ghost-button compact-button"
+          disabled={table.rows.length === 0}
+          type="button"
+          onClick={() => printExportTable(table)}
+        >
+          인쇄
+        </button>
+      </div>
+    )
+  }
+
   function renderWorkLogSortButton(key: WorkLogSortKey, label: string) {
     return (
       <button
@@ -1363,7 +1765,7 @@ function App() {
   function openProject(projectId: string) {
     selectProject(projectId)
     setProjectDetailTab('worklogs')
-    setView('project')
+    navigateTo('project')
   }
 
   function openNewOrderModal() {
@@ -1493,7 +1895,7 @@ function App() {
       projectName: '',
     }))
     setIsOrderModalOpen(false)
-    setView('orders')
+    navigateTo('orders')
   }
 
   function openExpenseEditor() {
@@ -1556,6 +1958,17 @@ function App() {
       manualVatAmount: false,
       manualAmount: false,
     }))
+  }
+
+  function getWorkLogSortValue(workLog: WorkLog, key: WorkLogSortKey) {
+    if (key === 'projectOrderNo') {
+      return (
+        projectSummaries.find((project) => project.id === workLog.projectId)
+          ?.orderNo ?? ''
+      )
+    }
+
+    return workLog[key]
   }
 
   function openNewExpenseModal() {
@@ -1833,7 +2246,7 @@ function App() {
           className="brand-home"
           type="button"
           aria-label="홈으로 이동"
-          onClick={() => setView('home')}
+          onClick={() => navigateTo('home')}
         >
           <img src="/cj-logo-white.jpg" alt="창조이엔지" />
         </button>
@@ -1842,42 +2255,42 @@ function App() {
           <button
             className={view === 'home' ? 'active' : ''}
             type="button"
-            onClick={() => setView('home')}
+            onClick={() => navigateTo('home')}
           >
             홈
           </button>
           <button
             className={view === 'orders' ? 'active' : ''}
             type="button"
-            onClick={() => setView('orders')}
+            onClick={() => navigateTo('orders')}
           >
             수주대장
           </button>
           <button
             className={view === 'dashboard' ? 'active' : ''}
             type="button"
-            onClick={() => setView('dashboard')}
+            onClick={() => navigateTo('dashboard')}
           >
             공사현황
           </button>
           <button
             className={view === 'expenses' ? 'active' : ''}
             type="button"
-            onClick={() => setView('expenses')}
+            onClick={() => navigateTo('expenses')}
           >
             지출내역
           </button>
           <button
-            className={view === 'worklogs' ? 'active' : ''}
+            className={view === 'worklogs' || view === 'worklogList' ? 'active' : ''}
             type="button"
-            onClick={() => setView('worklogs')}
+            onClick={() => navigateTo('worklogs')}
           >
             작업일보
           </button>
           <button
             className={view === 'contacts' ? 'active' : ''}
             type="button"
-            onClick={() => setView('contacts')}
+            onClick={() => navigateTo('contacts')}
           >
             거래처내역
           </button>
@@ -1890,6 +2303,26 @@ function App() {
 
       <section className="workspace">
         <header className="topbar">
+          <div className="history-actions" aria-label="화면 이동">
+            <button
+              aria-label="뒤로가기"
+              disabled={viewHistory.length === 0}
+              title="뒤로가기"
+              type="button"
+              onClick={goBack}
+            >
+              ←
+            </button>
+            <button
+              aria-label="앞으로가기"
+              disabled={viewFuture.length === 0}
+              title="앞으로가기"
+              type="button"
+              onClick={goForward}
+            >
+              →
+            </button>
+          </div>
           <div>
             <p className="eyebrow">
               {view === 'home'
@@ -1904,6 +2337,8 @@ function App() {
                       ? '공사현황'
                       : view === 'expenses'
                         ? '지출내역'
+                        : view === 'worklogList'
+                          ? '작업일보 전체조회'
                         : '작업일보'}
             </p>
             <h2>
@@ -1917,6 +2352,8 @@ function App() {
                     ? `${orderYear}년 공사별 원가 현황`
                     : view === 'expenses'
                       ? `${orderYear}년 공사 내역`
+                      : view === 'worklogList'
+                        ? '작업일보 전체조회'
                       : view === 'worklogs'
                         ? '작업일보 달력'
                         : selectedProject?.projectName}
@@ -1948,7 +2385,14 @@ function App() {
                   </button>
                 ))}
               </div>
-            ) : (
+            ) : view === 'worklogList' ? (
+              <>
+                <span>{filteredWorkLogsForList.length}건</span>
+                <span>
+                  {workLogListYear === 'all' ? '전체년도' : `${workLogListYear}년`}
+                </span>
+              </>
+            ) : view === 'worklogs' ? null : (
               <>
                 <span>{selectedProject?.orderNo}</span>
                 <span>{selectedProject?.client1}</span>
@@ -1989,7 +2433,7 @@ function App() {
                   <button
                     className="text-link"
                     type="button"
-                    onClick={() => setView('orders')}
+                    onClick={() => navigateTo('orders')}
                   >
                     전체보기
                   </button>
@@ -2023,7 +2467,7 @@ function App() {
                   <button
                     className="text-link"
                     type="button"
-                    onClick={() => setView('dashboard')}
+                    onClick={() => navigateTo('dashboard')}
                   >
                     현황보기
                   </button>
@@ -2048,16 +2492,16 @@ function App() {
             </section>
 
             <section className="panel home-shortcuts">
-              <button type="button" onClick={openNewOrderModal}>
-                수주 등록
+              <button type="button" onClick={() => navigateTo('orders')}>
+                수주대장
               </button>
-              <button type="button" onClick={openNewExpenseModal}>
-                지출 등록
+              <button type="button" onClick={() => navigateTo('expenses')}>
+                지출내역
               </button>
-              <button type="button" onClick={() => setIsWorkLogModalOpen(true)}>
-                작업일보 추가
+              <button type="button" onClick={() => navigateTo('worklogs')}>
+                작업일보
               </button>
-              <button type="button" onClick={() => setView('contacts')}>
+              <button type="button" onClick={() => navigateTo('contacts')}>
                 거래처 확인
               </button>
             </section>
@@ -2149,6 +2593,7 @@ function App() {
                   >
                     미사용
                   </button>
+                  {renderOutputButtons(contactsExportTable)}
                 </div>
               </div>
 
@@ -2394,10 +2839,24 @@ function App() {
                   >
                     삭제
                   </button>
+                  {renderOutputButtons(ordersExportTable)}
                 </div>
               </div>
               <div className="table-wrap">
                 <table className="orders-table">
+                  <colgroup>
+                    <col className="orders-col-check" />
+                    <col className="orders-col-year" />
+                    <col className="orders-col-order-no" />
+                    <col className="orders-col-date" />
+                    <col className="orders-col-date" />
+                    <col className="orders-col-status" />
+                    <col className="orders-col-manager" />
+                    <col className="orders-col-client" />
+                    <col className="orders-col-client" />
+                    <col className="orders-col-region" />
+                    <col className="orders-col-project" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th className="check-cell">
@@ -2419,6 +2878,7 @@ function App() {
                           '준공예정일',
                         )}
                       </th>
+                      <th>상태</th>
                       <th>{renderOrderSortButton('manager', '담당자')}</th>
                       <th>{renderOrderSortButton('client1', '수주처1')}</th>
                       <th>{renderOrderSortButton('client2', '수주처2')}</th>
@@ -2442,6 +2902,9 @@ function App() {
                         <td className="order-center">{order.orderDate}</td>
                         <td className="order-center">
                           {order.expectedCompletionDate}
+                        </td>
+                        <td className="order-center">
+                          <span className="status">{getProjectStatus(order)}</span>
                         </td>
                         <td className="order-center">{order.manager}</td>
                         <td className="order-center">{order.client1}</td>
@@ -2881,8 +3344,8 @@ function App() {
           <section className="content-grid">
             <div className="panel wide">
               <div className="panel-heading">
-                <h3>공사별 원가 현황</h3>
-                <span>비용 + 작업 공수 + 발주 자동 집계</span>
+                <h3>공사별 현황</h3>
+                {renderOutputButtons(dashboardExportTable)}
               </div>
               <div className="table-wrap">
                 <table>
@@ -3008,10 +3471,22 @@ function App() {
                   >
                     삭제
                   </button>
+                  {renderOutputButtons(expensesExportTable)}
                 </div>
               </div>
               <div className="table-wrap">
-                <table>
+                <table className="expenses-table">
+                  <colgroup>
+                    <col className="expenses-col-check" />
+                    <col className="expenses-col-date" />
+                    <col className="expenses-col-vendor" />
+                    <col className="expenses-col-memo" />
+                    <col className="expenses-col-amount" />
+                    <col className="expenses-col-amount" />
+                    <col className="expenses-col-amount" />
+                    <col className="expenses-col-kind" />
+                    <col className="expenses-col-card" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th className="check-cell">
@@ -3045,8 +3520,8 @@ function App() {
                             onChange={() => toggleSelectedExpense(expense.id)}
                           />
                         </td>
-                        <td>{formatTableDate(expense.date)}</td>
-                        <td>{expense.vendor}</td>
+                        <td className="expense-center">{formatTableDate(expense.date)}</td>
+                        <td className="expense-center">{expense.vendor}</td>
                         <td className="expense-content">{expense.memo || '-'}</td>
                         <td className="numeric-cell">
                           {formatNumber(getExpenseSupplyAmount(expense))}
@@ -3057,8 +3532,10 @@ function App() {
                         <td className="numeric-cell">
                           {formatNumber(expense.amount)}
                         </td>
-                        <td>{normalizeExpenseKind(expense.kind)}</td>
-                        <td>{expense.cardNumber || '-'}</td>
+                        <td className="expense-center">
+                          {normalizeExpenseKind(expense.kind)}
+                        </td>
+                        <td className="expense-center">{expense.cardNumber || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -3311,38 +3788,43 @@ function App() {
 
         {view === 'worklogs' && (
           <section className="content-grid single">
-            <div className="panel worklog-toolbar">
-              <div>
-                <p className="eyebrow">작업일보</p>
-                <h3>작업일보 등록 및 조회</h3>
-              </div>
-              <button
-                className="primary-button"
-                type="button"
-                onClick={() => setIsWorkLogModalOpen(true)}
-              >
-                작업일보 추가
-              </button>
-            </div>
-
             <div className="panel calendar-panel">
-              <div className="panel-heading">
-                <div>
-                  <h3>{workLogMonth} 작업 달력</h3>
-                  <span>일자별 작업 공사와 작업자를 간략히 표시합니다</span>
+              <div className="calendar-controls">
+                <div className="calendar-month-pickers">
+                  <select
+                    aria-label="작업일보 년도"
+                    value={workLogMonth.slice(0, 4)}
+                    onChange={(event) =>
+                      updateWorkLogCalendarMonth(
+                        event.target.value,
+                        workLogMonth.slice(5, 7),
+                      )
+                    }
+                  >
+                    {workLogCalendarYears.map((year) => (
+                      <option key={year} value={year}>
+                        {year}년
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="작업일보 월"
+                    value={workLogMonth.slice(5, 7)}
+                    onChange={(event) =>
+                      updateWorkLogCalendarMonth(
+                        workLogMonth.slice(0, 4),
+                        event.target.value,
+                      )
+                    }
+                  >
+                    {calendarMonthOptions.map((month) => (
+                      <option key={month} value={month}>
+                        {month}월
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div className="calendar-actions">
-                  <label className="date-jump-control">
-                    일자 검색
-                    <input
-                      type="date"
-                      value={workLogForm.date}
-                      onChange={(event) => jumpToWorkLogDate(event.target.value)}
-                      onInput={(event) =>
-                        jumpToWorkLogDate(event.currentTarget.value)
-                      }
-                    />
-                  </label>
+                <div className="calendar-toolbar-row">
                   <div className="calendar-nav-buttons">
                     <button
                       className="ghost-button"
@@ -3366,6 +3848,13 @@ function App() {
                       다음
                     </button>
                   </div>
+                  <button
+                    className="primary-button compact-button"
+                    type="button"
+                    onClick={() => navigateTo('worklogList')}
+                  >
+                    전체조회
+                  </button>
                 </div>
               </div>
               <div className="calendar-grid">
@@ -3414,7 +3903,7 @@ function App() {
                         {Number(day.date.slice(8, 10))}
                       </button>
                       <div>
-                        {dayProjectGroups.slice(0, 3).map((group) => (
+                        {dayProjectGroups.slice(0, 2).map((group) => (
                           <button
                             className="calendar-entry"
                             key={`${day.date}-${group.projectId}`}
@@ -3430,9 +3919,9 @@ function App() {
                             {group.logs.length}명
                           </button>
                         ))}
-                        {dayProjectGroups.length > 3 && (
+                        {dayProjectGroups.length > 2 && (
                           <span className="calendar-more">
-                            외 {dayProjectGroups.length - 3}건
+                            외 {dayProjectGroups.length - 2}건
                           </span>
                         )}
                       </div>
@@ -3443,21 +3932,26 @@ function App() {
             </div>
 
             <div className="panel full">
-              <div className="panel-heading">
-                <h3>공사 선택</h3>
-                <span>{selectedProject?.projectName}</span>
-              </div>
-              <div className="project-year-switch" aria-label="작업일보 공사 년도">
-                {orderYears.map((year) => (
-                  <button
-                    className={orderYear === year ? 'active' : ''}
-                    key={year}
-                    type="button"
-                    onClick={() => switchOrderYear(year)}
-                  >
-                    {year}
-                  </button>
-                ))}
+              <div className="worklog-project-controls">
+                <div className="project-year-switch" aria-label="작업일보 공사 년도">
+                  {orderYears.map((year) => (
+                    <button
+                      className={orderYear === year ? 'active' : ''}
+                      key={year}
+                      type="button"
+                      onClick={() => switchOrderYear(year)}
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className="primary-button compact-button"
+                  type="button"
+                  onClick={() => setIsWorkLogModalOpen(true)}
+                >
+                  작업일보 등록
+                </button>
               </div>
               <label className="project-picker">
                 <select
@@ -3736,11 +4230,14 @@ function App() {
 
             <div className="panel wide">
               <div className="panel-heading">
-                <h3>선택 공사 작업일보</h3>
-                <span>{(selectedProject?.manDays ?? 0).toFixed(2)}명</span>
+                <div>
+                  <h3>선택 공사 작업일보</h3>
+                  <span>{(selectedProject?.manDays ?? 0).toFixed(2)}명</span>
+                </div>
+                {renderOutputButtons(selectedWorkLogsExportTable)}
               </div>
               <div className="table-wrap">
-                <table>
+                <table className="selected-worklog-table">
                   <thead>
                     <tr>
                       <th>{renderWorkLogSortButton('date', '일자')}</th>
@@ -3759,19 +4256,127 @@ function App() {
                   <tbody>
                     {filteredWorkLogs.map((workLog) => (
                       <tr key={workLog.id}>
-                        <td>{workLog.date}</td>
+                        <td>{formatTableDate(workLog.date)}</td>
                         <td>{workLog.worker}</td>
                         <td>{workLog.workerType}</td>
                         <td>{workLog.startTime}</td>
                         <td>{workLog.endTime}</td>
-                        <td>{workLog.overtimeHours.toFixed(1)}h</td>
+                        <td>{workLog.overtimeHours.toFixed(1)}</td>
                         <td>{workLog.location || '-'}</td>
                         <td>{workLog.task}</td>
                         <td>{workLog.note || '-'}</td>
-                        <td>{workLog.hours.toFixed(1)}h</td>
-                        <td>{(workLog.hours / 8).toFixed(2)}명</td>
+                        <td>{workLog.hours.toFixed(1)}</td>
+                        <td>{(workLog.hours / 8).toFixed(2)}</td>
                       </tr>
                     ))}
+                  </tbody>
+                  {filteredWorkLogs.length > 0 && (
+                    <tfoot>
+                      <tr>
+                        <td colSpan={7}>총합</td>
+                        <td>작업일수 {filteredWorkLogTotals.days.size}</td>
+                        <td></td>
+                        <td>{filteredWorkLogTotals.hours.toFixed(1)}</td>
+                        <td>{(filteredWorkLogTotals.hours / 8).toFixed(2)}</td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {view === 'worklogList' && (
+          <section className="content-grid single">
+            <div className="panel full worklog-list-panel">
+              <div className="panel-heading">
+                <div>
+                  <h3>작업일보 전체조회</h3>
+                  <span>
+                    {workLogListYear === 'all' ? '전체년도' : `${workLogListYear}년`}
+                    {' '}
+                    작업일보 {filteredWorkLogsForList.length}건
+                  </span>
+                </div>
+                <button
+                  className="ghost-button compact-button"
+                  type="button"
+                  onClick={() => navigateTo('worklogs')}
+                >
+                  달력으로
+                </button>
+                {renderOutputButtons(allWorkLogsExportTable)}
+              </div>
+
+              <div className="worklog-list-toolbar">
+                <div className="project-year-switch" aria-label="작업일보 조회 년도">
+                  <button
+                    className={workLogListYear === 'all' ? 'active' : ''}
+                    type="button"
+                    onClick={() => setWorkLogListYear('all')}
+                  >
+                    전체
+                  </button>
+                  {workLogYears.map((year) => (
+                    <button
+                      className={workLogListYear === year ? 'active' : ''}
+                      key={year}
+                      type="button"
+                      onClick={() => setWorkLogListYear(year)}
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="table-wrap worklog-list-wrap">
+                <table className="worklog-list-table">
+                  <thead>
+                    <tr>
+                      <th>{renderWorkLogSortButton('date', '작업일')}</th>
+                      <th>{renderWorkLogSortButton('worker', '작업자')}</th>
+                      <th>{renderWorkLogSortButton('workerType', '구분')}</th>
+                      <th>{renderWorkLogSortButton('startTime', '작업시작')}</th>
+                      <th>{renderWorkLogSortButton('endTime', '작업종료')}</th>
+                      <th>{renderWorkLogSortButton('overtimeHours', '잔업시간')}</th>
+                      <th>{renderWorkLogSortButton('location', '작업장소')}</th>
+                      <th>{renderWorkLogSortButton('task', '작업내용')}</th>
+                      <th>{renderWorkLogSortButton('projectOrderNo', '수주번호')}</th>
+                      <th>{renderWorkLogSortButton('note', '비고')}</th>
+                      <th>{renderWorkLogSortButton('hours', '작업시간')}</th>
+                      <th>{renderWorkLogSortButton('hours', '공수')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredWorkLogsForList.map((workLog) => {
+                      const project = projectSummaries.find(
+                        (item) => item.id === workLog.projectId,
+                      )
+
+                      return (
+                        <tr key={workLog.id}>
+                          <td>{formatTableDate(workLog.date)}</td>
+                          <td>{workLog.worker}</td>
+                          <td>{workLog.workerType}</td>
+                          <td>{workLog.startTime}</td>
+                          <td>{workLog.endTime}</td>
+                          <td>{workLog.overtimeHours.toFixed(1)}</td>
+                          <td>{workLog.location || '-'}</td>
+                          <td>{workLog.task}</td>
+                          <td>{project?.orderNo ?? '-'}</td>
+                          <td>{workLog.note || '-'}</td>
+                          <td>{workLog.hours.toFixed(1)}</td>
+                          <td>{(workLog.hours / 8).toFixed(2)}</td>
+                        </tr>
+                      )
+                    })}
+                    {filteredWorkLogsForList.length === 0 && (
+                      <tr>
+                        <td colSpan={12}>조회할 작업일보가 없습니다.</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -249,7 +249,7 @@
 .topbar {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: 14px;
   align-items: center;
   min-height: 76px;
   padding: 18px 22px;
@@ -269,6 +269,45 @@
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.history-actions {
+  display: inline-grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(2, 34px);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.history-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  min-height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0;
+}
+
+.history-actions button:not(:disabled):hover {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--shadow-soft);
+}
+
+.history-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
 }
 
 .year-switch {
@@ -536,7 +575,89 @@ table {
 }
 
 .orders-table {
-  min-width: 1040px;
+  table-layout: fixed;
+  min-width: 1240px;
+}
+
+.orders-col-check {
+  width: 44px;
+}
+
+.orders-col-year {
+  width: 68px;
+}
+
+.orders-col-order-no {
+  width: 86px;
+}
+
+.orders-col-date {
+  width: 112px;
+}
+
+.orders-col-status {
+  width: 82px;
+}
+
+.orders-col-manager {
+  width: 90px;
+}
+
+.orders-col-client {
+  width: 128px;
+}
+
+.orders-col-region {
+  width: 112px;
+}
+
+.orders-col-project {
+  width: 320px;
+}
+
+.expenses-table {
+  table-layout: fixed;
+  min-width: 1120px;
+}
+
+.expenses-col-check {
+  width: 44px;
+}
+
+.expenses-col-date {
+  width: 96px;
+}
+
+.expenses-col-vendor {
+  width: 150px;
+}
+
+.expenses-col-memo {
+  width: 260px;
+}
+
+.expenses-col-amount {
+  width: 120px;
+}
+
+.expenses-col-kind {
+  width: 132px;
+}
+
+.expenses-col-card {
+  width: 138px;
+}
+
+.expenses-table td {
+  text-align: center;
+}
+
+.expenses-table .expense-content {
+  text-align: left;
+}
+
+.expenses-table .numeric-cell {
+  text-align: right;
 }
 
 .contacts-table {
@@ -610,6 +731,13 @@ table {
 
 .contact-actions > div {
   display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.output-actions {
+  display: inline-flex;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -801,21 +929,44 @@ tr.selected-row td {
 
 .calendar-panel {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
-.calendar-actions {
-  display: flex;
+.calendar-heading {
+  align-items: center;
+}
+
+.calendar-controls {
+  display: grid;
+  gap: 6px;
+  justify-items: stretch;
+}
+
+.calendar-month-pickers {
+  display: inline-grid;
+  grid-template-columns: 120px 96px;
   gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-self: start;
+}
+
+.calendar-month-pickers select {
+  min-height: 36px;
+  padding: 7px 10px;
+  text-align: center;
+}
+
+.calendar-toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
   align-items: center;
 }
 
 .calendar-nav-buttons {
   display: inline-grid;
-  grid-template-columns: repeat(3, minmax(48px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(44px, 1fr));
+  width: min(100%, 260px);
+  gap: 6px;
 }
 
 .project-year-switch {
@@ -824,10 +975,21 @@ tr.selected-row td {
   gap: 4px;
   min-width: 144px;
   max-width: 300px;
-  margin-bottom: 12px;
   padding: 4px;
   border-radius: 8px;
   background: #f0f4f8;
+}
+
+.panel > .project-year-switch {
+  margin-bottom: 12px;
+}
+
+.worklog-project-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
 .project-year-switch button {
@@ -849,16 +1011,13 @@ tr.selected-row td {
 
 .date-jump-control {
   display: grid;
-  grid-template-columns: auto 152px;
-  gap: 8px;
+  width: min(100%, 220px);
   align-items: center;
-  color: #486581;
-  font-size: 13px;
-  font-weight: 800;
 }
 
 .date-jump-control input {
   min-height: 36px;
+  text-align: center;
 }
 
 .calendar-grid {
@@ -870,8 +1029,8 @@ tr.selected-row td {
 }
 
 .calendar-weekday {
-  min-height: 34px;
-  padding: 9px;
+  min-height: 30px;
+  padding: 7px;
   background: #f0f4f8;
   color: #486581;
   font-size: 12px;
@@ -882,14 +1041,14 @@ tr.selected-row td {
 .calendar-day {
   display: grid;
   align-content: start;
-  gap: 6px;
-  min-height: 96px;
+  gap: 4px;
+  min-height: 78px;
   border-top: 1px solid #e6edf3;
   border-right: 1px solid #e6edf3;
   background: #ffffff;
   color: #243b53;
   font: inherit;
-  padding: 8px;
+  padding: 6px;
   text-align: left;
 }
 
@@ -911,7 +1070,7 @@ tr.selected-row td {
 
 .calendar-day div {
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .calendar-entry,
@@ -925,8 +1084,8 @@ tr.selected-row td {
   font: inherit;
   font-size: 10px;
   font-weight: 800;
-  line-height: 1.3;
-  padding: 3px 5px;
+  line-height: 1.2;
+  padding: 2px 5px;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -946,6 +1105,65 @@ tr.selected-row td {
 
 .calendar-day.today {
   box-shadow: inset 0 0 0 2px #0b806f;
+}
+
+.worklog-list-panel {
+  min-height: calc(100vh - 190px);
+}
+
+.worklog-list-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+.worklog-list-wrap {
+  max-height: calc(100vh - 330px);
+  overflow: auto;
+}
+
+.worklog-list-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
+}
+
+.worklog-list-table {
+  min-width: 1420px;
+}
+
+.worklog-list-table th,
+.worklog-list-table td {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.worklog-list-table th:nth-child(8),
+.worklog-list-table td:nth-child(8),
+.worklog-list-table th:nth-child(10),
+.worklog-list-table td:nth-child(10) {
+  white-space: normal;
+}
+
+.worklog-list-table td:nth-child(8),
+.worklog-list-table td:nth-child(10) {
+  text-align: left;
+}
+
+.selected-worklog-table th,
+.selected-worklog-table td {
+  text-align: center;
+}
+
+.selected-worklog-table td:nth-child(8),
+.selected-worklog-table td:nth-child(9) {
+  text-align: left;
+}
+
+.selected-worklog-table tfoot td {
+  text-align: center;
+  font-weight: 900;
 }
 
 .small-modal {
@@ -1459,6 +1677,11 @@ tbody tr.selected-row:hover td {
     justify-content: flex-start;
   }
 
+  .history-actions {
+    grid-template-columns: repeat(2, 34px);
+    width: auto;
+  }
+
   .table-toolbar,
   .contact-actions {
     align-items: stretch;
@@ -1505,18 +1728,19 @@ tbody tr.selected-row:hover td {
     grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 
-  .calendar-actions,
+  .calendar-controls,
   .date-jump-control {
     align-items: stretch;
     grid-template-columns: 1fr;
   }
 
-  .calendar-actions {
+  .calendar-controls {
     display: grid;
     grid-template-columns: 1fr;
   }
 
   .calendar-nav-buttons {
+    width: min(100%, 260px);
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
   }
