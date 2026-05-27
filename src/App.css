@@ -585,11 +585,13 @@ td {
 }
 
 .expense-center,
+.order-center,
 .center-field {
   text-align: center;
 }
 
 .expense-content,
+.order-project-name,
 .left-field {
   text-align: left;
 }

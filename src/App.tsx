@@ -2291,15 +2291,17 @@ function App() {
                             onChange={() => toggleSelectedOrder(order.id)}
                           />
                         </td>
-                        <td>{getOrderYear(order)}</td>
-                        <td>{order.orderNo}</td>
-                        <td>{order.orderDate}</td>
-                        <td>{order.expectedCompletionDate}</td>
-                        <td>{order.manager}</td>
-                        <td>{order.client1}</td>
-                        <td>{order.client2}</td>
-                        <td>{order.region}</td>
-                        <td>
+                        <td className="order-center">{getOrderYear(order)}</td>
+                        <td className="order-center">{order.orderNo}</td>
+                        <td className="order-center">{order.orderDate}</td>
+                        <td className="order-center">
+                          {order.expectedCompletionDate}
+                        </td>
+                        <td className="order-center">{order.manager}</td>
+                        <td className="order-center">{order.client1}</td>
+                        <td className="order-center">{order.client2}</td>
+                        <td className="order-center">{order.region}</td>
+                        <td className="order-project-name">
                           <button
                             className="text-link"
                             type="button"
