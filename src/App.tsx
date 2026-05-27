@@ -1278,6 +1278,7 @@ function App() {
 
     setVendorForm(vendor.contact)
     setEditingVendorKey(vendor.key)
+    setSelectedVendorKeys([])
   }
 
   function saveVendorEdit(event: FormEvent<HTMLFormElement>) {
@@ -1328,6 +1329,7 @@ function App() {
         ? current.filter((key) => !selectedVendorKeys.includes(key))
         : [...new Set([...current, ...selectedVendorKeys])],
     )
+    setSelectedVendorKeys([])
   }
 
   function openProject(projectId: string) {
