@@ -743,6 +743,16 @@ table {
   justify-content: flex-end;
 }
 
+.file-import-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-import-button input {
+  display: none;
+}
+
 .compact-button {
   min-height: 40px;
   padding: 0 14px;

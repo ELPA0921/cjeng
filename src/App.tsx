@@ -73,6 +73,8 @@ type ExportTable = {
   totals?: ExportCell[][]
 }
 
+type CsvRecord = Record<string, string>
+
 type View =
   | 'home'
   | 'orders'
@@ -480,6 +482,99 @@ const escapeHtml = (value: ExportCell) =>
 const makeExportFileName = (title: string) =>
   `${title.replace(/[\\/:*?"<>|]/g, '_')}_${formatDateOnly(new Date())}`
 
+const escapeCsvCell = (value: ExportCell) => {
+  const text = String(value)
+
+  return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+}
+
+const parseCsvText = (text: string) => {
+  const rows: string[][] = []
+  let cell = ''
+  let row: string[] = []
+  let inQuotes = false
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    const nextChar = text[index + 1]
+
+    if (char === '"' && inQuotes && nextChar === '"') {
+      cell += '"'
+      index += 1
+    } else if (char === '"') {
+      inQuotes = !inQuotes
+    } else if (char === ',' && !inQuotes) {
+      row.push(cell.trim())
+      cell = ''
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') index += 1
+      row.push(cell.trim())
+      if (row.some((item) => item)) rows.push(row)
+      row = []
+      cell = ''
+    } else {
+      cell += char
+    }
+  }
+
+  row.push(cell.trim())
+  if (row.some((item) => item)) rows.push(row)
+
+  return rows
+}
+
+const parseCsvRecords = (text: string): CsvRecord[] => {
+  const rows = parseCsvText(text.replace(/^\ufeff/, ''))
+  const headers = rows[0] ?? []
+
+  return rows.slice(1).map((row) =>
+    headers.reduce<CsvRecord>((record, header, index) => {
+      record[header] = row[index] ?? ''
+      return record
+    }, {}),
+  )
+}
+
+const readCsvFile = (file: File, onImport: (records: CsvRecord[]) => void) => {
+  const reader = new FileReader()
+  reader.onload = () => onImport(parseCsvRecords(String(reader.result ?? '')))
+  reader.readAsText(file, 'utf-8')
+}
+
+const getCsvValue = (record: CsvRecord, names: string[]) =>
+  names.map((name) => record[name]).find((value) => value !== undefined) ?? ''
+
+const parseCsvDate = (value: string) => {
+  const normalized = value
+    .replaceAll('.', '-')
+    .replaceAll('/', '-')
+    .replace(/\s+/g, '')
+    .replace(/-$/, '')
+  const parts = normalized.split('-').filter(Boolean)
+  if (parts.length < 3) return value || today
+
+  return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`
+}
+
+const parseCsvNumber = (value: string) =>
+  Number(value.replaceAll(',', '').replace(/[^\d.-]/g, '')) || 0
+
+const exportTableToCsv = (table: ExportTable) => {
+  const rows = [
+    table.columns,
+    ...table.rows,
+    ...(table.totals ?? []),
+  ].map((row) => row.map(escapeCsvCell).join(','))
+  const blob = new Blob(['\ufeff', rows.join('\r\n')], {
+    type: 'text/csv;charset=utf-8;',
+  })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `${makeExportFileName(table.title)}.csv`
+  link.click()
+  URL.revokeObjectURL(link.href)
+}
+
 const buildExportTableHtml = (table: ExportTable) => `
   <table>
     <thead>
@@ -507,32 +602,6 @@ const buildExportTableHtml = (table: ExportTable) => `
     }
   </table>
 `
-
-const exportTableToExcel = (table: ExportTable) => {
-  const html = `<!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <style>
-          table { border-collapse: collapse; }
-          th, td { border: 1px solid #999; padding: 6px 8px; mso-number-format:"\\@"; }
-          th { background: #eaf2f8; font-weight: 700; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <h3>${escapeHtml(table.title)}</h3>
-        ${buildExportTableHtml(table)}
-      </body>
-    </html>`
-  const blob = new Blob(['\ufeff', html], {
-    type: 'application/vnd.ms-excel;charset=utf-8;',
-  })
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(blob)
-  link.download = `${makeExportFileName(table.title)}.xls`
-  link.click()
-  URL.revokeObjectURL(link.href)
-}
 
 const printExportTable = (table: ExportTable) => {
   const printWindow = window.open('', '_blank', 'width=1200,height=800')
@@ -836,9 +905,21 @@ function App() {
   const [vendorEdits, setVendorEdits] = useState<Record<string, VendorContact>>(
     () => loadStoredData<Record<string, VendorContact>>('cost-app-vendor-edits', {}),
   )
+  const [customVendorContacts, setCustomVendorContacts] = useState<
+    Record<ContactTab, VendorContact[]>
+  >(() =>
+    loadStoredData<Record<ContactTab, VendorContact[]>>(
+      'cost-app-custom-vendors',
+      {
+        purchase: [],
+        order: [],
+      },
+    ),
+  )
   const [editingVendorKey, setEditingVendorKey] = useState<string | null>(null)
   const [vendorForm, setVendorForm] =
     useState<VendorContact>(emptyVendorContact)
+  const [isVendorModalOpen, setIsVendorModalOpen] = useState(false)
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false)
   const [isWorkLogModalOpen, setIsWorkLogModalOpen] = useState(false)
@@ -940,6 +1021,13 @@ function App() {
   useEffect(() => {
     localStorage.setItem('cost-app-vendor-edits', JSON.stringify(vendorEdits))
   }, [vendorEdits])
+
+  useEffect(() => {
+    localStorage.setItem(
+      'cost-app-custom-vendors',
+      JSON.stringify(customVendorContacts),
+    )
+  }, [customVendorContacts])
 
   const handleLogin = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -1203,7 +1291,9 @@ function App() {
       return workLogSort.direction === 'asc' ? result : -result
     })
   const activeVendorContacts =
-    contactTab === 'purchase' ? purchaseVendorContacts : orderVendorContacts
+    contactTab === 'purchase'
+      ? [...purchaseVendorContacts, ...customVendorContacts.purchase]
+      : [...orderVendorContacts, ...customVendorContacts.order]
   const vendorSearchQuery = normalizeSearchText(vendorSearchText)
   const vendorRows = activeVendorContacts
     .map((contact, index) => {
@@ -1553,6 +1643,7 @@ function App() {
     setContactTab(nextTab)
     setSelectedVendorKeys([])
     setEditingVendorKey(null)
+    setIsVendorModalOpen(false)
     if (nextTab === 'order' && vendorSearchScope === 'item') {
       setVendorSearchScope('all')
     }
@@ -1594,6 +1685,116 @@ function App() {
     )
   }
 
+  function importOrdersFromCsv(records: CsvRecord[]) {
+    const importedOrders = records.reduce<Order[]>((ordersToImport, record) => {
+        const orderNo = getCsvValue(record, ['수주번호']).trim()
+        const year = getCsvValue(record, ['년도']).trim() || orderNo.slice(0, 4)
+        const projectName = getCsvValue(record, ['공사명']).trim()
+
+        if (!orderNo || !projectName) return ordersToImport
+
+        ordersToImport.push({
+          id: `o-${orderNo}-${crypto.randomUUID()}`,
+          year,
+          orderNo,
+          orderDate: parseCsvDate(getCsvValue(record, ['수주일자'])),
+          expectedCompletionDate: parseCsvDate(
+            getCsvValue(record, ['준공예정일']),
+          ),
+          manager: getCsvValue(record, ['담당자']),
+          client1: getCsvValue(record, ['수주처1']),
+          client2: getCsvValue(record, ['수주처2']),
+          region: getCsvValue(record, ['공사지역']),
+          projectName,
+        })
+
+        return ordersToImport
+      }, [])
+
+    if (importedOrders.length === 0) return
+
+    setOrders((current) => {
+      const withoutDuplicates = current.filter(
+        (order) =>
+          !importedOrders.some(
+            (importedOrder) =>
+              importedOrder.orderNo === order.orderNo &&
+              getOrderYear(importedOrder) === getOrderYear(order),
+          ),
+      )
+
+      return [...importedOrders, ...withoutDuplicates].sort((a, b) =>
+        a.orderNo.localeCompare(b.orderNo),
+      )
+    })
+    setOrderYear(getOrderYear(importedOrders[0]))
+    selectProject(importedOrders[0].id)
+  }
+
+  function importExpensesFromCsv(records: CsvRecord[]) {
+    const importedExpenses = records
+      .filter((record) => getCsvValue(record, ['일자', '거래처', '내용']))
+      .map((record) => {
+        const supplyAmount = parseCsvNumber(getCsvValue(record, ['공급가액']))
+        const vatAmount = parseCsvNumber(getCsvValue(record, ['부가세']))
+        const amount =
+          parseCsvNumber(getCsvValue(record, ['금액'])) || supplyAmount + vatAmount
+
+        return {
+          id: `e-${crypto.randomUUID()}`,
+          projectId: selectedProjectId,
+          date: parseCsvDate(getCsvValue(record, ['일자'])),
+          kind: getCsvValue(record, ['구분']) || '기타',
+          vendor: getCsvValue(record, ['거래처']),
+          memo: getCsvValue(record, ['내용']),
+          cardNumber: getCsvValue(record, ['카드번호']),
+          supplyAmount,
+          vatAmount,
+          amount,
+        } satisfies Expense
+      })
+
+    if (importedExpenses.length === 0) return
+
+    setExpenses((current) => [...importedExpenses, ...current])
+  }
+
+  function importWorkLogsFromCsv(records: CsvRecord[], projectId?: string) {
+    const importedWorkLogs = records
+      .map((record) => {
+        const orderNo = getCsvValue(record, ['수주번호'])
+        const matchedProject = projectSummaries.find(
+          (project) => project.orderNo === orderNo,
+        )
+        const targetProjectId = projectId ?? matchedProject?.id ?? selectedProjectId
+        const task = getCsvValue(record, ['작업내용'])
+        const worker = getCsvValue(record, ['작업자'])
+
+        if (!worker || !task) return null
+
+        return {
+          id: `w-${crypto.randomUUID()}`,
+          projectId: targetProjectId,
+          date: parseCsvDate(getCsvValue(record, ['작업일', '일자'])),
+          worker,
+          workerType:
+            getCsvValue(record, ['구분']) === '인력' ? '인력' : '직원',
+          startTime: getCsvValue(record, ['작업시작', '시작']) || '08:00',
+          endTime: getCsvValue(record, ['작업종료', '종료']) || '17:00',
+          overtimeHours: parseCsvNumber(getCsvValue(record, ['잔업시간', '잔업'])),
+          location: getCsvValue(record, ['작업장소', '장소']),
+          task,
+          note: getCsvValue(record, ['비고']),
+          hours: parseCsvNumber(getCsvValue(record, ['작업시간', '시간'])),
+        } satisfies WorkLog
+      })
+      .filter((workLog): workLog is WorkLog => Boolean(workLog))
+
+    if (importedWorkLogs.length === 0) return
+
+    setWorkLogs((current) => [...importedWorkLogs, ...current])
+  }
+
   function renderVendorSortButton(key: VendorSortKey, label: string) {
     return (
       <button
@@ -1633,17 +1834,34 @@ function App() {
     )
   }
 
-  function renderOutputButtons(table: ExportTable) {
+  function renderOutputButtons(
+    table: ExportTable,
+    onImport?: (records: CsvRecord[]) => void,
+  ) {
     return (
       <div className="output-actions">
         <button
           className="ghost-button compact-button"
           disabled={table.rows.length === 0}
           type="button"
-          onClick={() => exportTableToExcel(table)}
+          onClick={() => exportTableToCsv(table)}
         >
-          Excel 내보내기
+          CSV 내보내기
         </button>
+        {onImport && (
+          <label className="ghost-button compact-button file-import-button">
+            CSV 가져오기
+            <input
+              accept=".csv,text/csv"
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) readCsvFile(file, onImport)
+                event.target.value = ''
+              }}
+            />
+          </label>
+        )}
         <button
           className="ghost-button compact-button"
           disabled={table.rows.length === 0}
@@ -1708,19 +1926,41 @@ function App() {
 
     setVendorForm(vendor.contact)
     setEditingVendorKey(vendor.key)
+    setIsVendorModalOpen(true)
     setSelectedVendorKeys([])
   }
 
-  function saveVendorEdit(event: FormEvent<HTMLFormElement>) {
+  function openNewVendorModal() {
+    setEditingVendorKey(null)
+    setVendorForm(emptyVendorContact)
+    setSelectedVendorKeys([])
+    setIsVendorModalOpen(true)
+  }
+
+  function closeVendorModal() {
+    setEditingVendorKey(null)
+    setIsVendorModalOpen(false)
+  }
+
+  function saveVendor(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (!editingVendorKey) return
+    if (!vendorForm.company.trim()) return
 
-    setVendorEdits((current) => ({
+    if (editingVendorKey) {
+      setVendorEdits((current) => ({
+        ...current,
+        [editingVendorKey]: vendorForm,
+      }))
+      closeVendorModal()
+      return
+    }
+
+    setCustomVendorContacts((current) => ({
       ...current,
-      [editingVendorKey]: vendorForm,
+      [contactTab]: [vendorForm, ...current[contactTab]],
     }))
-    setEditingVendorKey(null)
+    closeVendorModal()
   }
 
   function deleteSelectedVendors() {
@@ -2367,8 +2607,16 @@ function App() {
               </>
             ) : view === 'contacts' ? (
               <>
-                <span>물품구입처 {purchaseVendorContacts.length}건</span>
-                <span>발주처 {orderVendorContacts.length}건</span>
+                <span>
+                  물품구입처{' '}
+                  {purchaseVendorContacts.length +
+                    customVendorContacts.purchase.length}
+                  건
+                </span>
+                <span>
+                  발주처 {orderVendorContacts.length + customVendorContacts.order.length}
+                  건
+                </span>
               </>
             ) : view === 'orders' ||
               view === 'dashboard' ||
@@ -2523,7 +2771,11 @@ function App() {
                     onClick={() => switchContactTab('purchase')}
                   >
                     물품구입처
-                    <span>{purchaseVendorContacts.length}건</span>
+                    <span>
+                      {purchaseVendorContacts.length +
+                        customVendorContacts.purchase.length}
+                      건
+                    </span>
                   </button>
                   <button
                     className={contactTab === 'order' ? 'active' : ''}
@@ -2531,7 +2783,10 @@ function App() {
                     onClick={() => switchContactTab('order')}
                   >
                     발주처
-                    <span>{orderVendorContacts.length}건</span>
+                    <span>
+                      {orderVendorContacts.length + customVendorContacts.order.length}
+                      건
+                    </span>
                   </button>
                 </div>
               </div>
@@ -2569,6 +2824,13 @@ function App() {
               <div className="contact-actions">
                 <span>선택 {selectedVendorCount}건</span>
                 <div>
+                  <button
+                    className="primary-button compact-button"
+                    type="button"
+                    onClick={openNewVendorModal}
+                  >
+                    {contactTab === 'purchase' ? '물품구입처 등록' : '발주처 등록'}
+                  </button>
                   <button
                     className="ghost-button"
                     disabled={selectedVendorCount !== 1}
@@ -2660,21 +2922,21 @@ function App() {
                 </table>
               </div>
 
-              {editingVendorKey && (
+              {isVendorModalOpen && (
                 <div className="modal-backdrop" role="presentation">
                   <form
                     className="modal-panel form-panel"
-                    onSubmit={saveVendorEdit}
+                    onSubmit={saveVendor}
                   >
                     <div className="modal-heading">
                       <div>
-                        <h3>거래처 수정</h3>
+                        <h3>{editingVendorKey ? '거래처 수정' : '거래처 등록'}</h3>
                         <span>{vendorForm.company || '업체명 없음'}</span>
                       </div>
                       <button
                         className="ghost-button"
                         type="button"
-                        onClick={() => setEditingVendorKey(null)}
+                        onClick={closeVendorModal}
                       >
                         닫기
                       </button>
@@ -2789,12 +3051,12 @@ function App() {
                       <button
                         className="ghost-button"
                         type="button"
-                        onClick={() => setEditingVendorKey(null)}
+                        onClick={closeVendorModal}
                       >
                         취소
                       </button>
                       <button className="primary-button" type="submit">
-                        저장
+                        {editingVendorKey ? '저장' : '등록'}
                       </button>
                     </div>
                   </form>
@@ -2839,7 +3101,7 @@ function App() {
                   >
                     삭제
                   </button>
-                  {renderOutputButtons(ordersExportTable)}
+                  {renderOutputButtons(ordersExportTable, importOrdersFromCsv)}
                 </div>
               </div>
               <div className="table-wrap">
@@ -3471,7 +3733,7 @@ function App() {
                   >
                     삭제
                   </button>
-                  {renderOutputButtons(expensesExportTable)}
+                  {renderOutputButtons(expensesExportTable, importExpensesFromCsv)}
                 </div>
               </div>
               <div className="table-wrap">
@@ -4234,7 +4496,9 @@ function App() {
                   <h3>선택 공사 작업일보</h3>
                   <span>{(selectedProject?.manDays ?? 0).toFixed(2)}명</span>
                 </div>
-                {renderOutputButtons(selectedWorkLogsExportTable)}
+                {renderOutputButtons(selectedWorkLogsExportTable, (records) =>
+                  importWorkLogsFromCsv(records, selectedProjectId),
+                )}
               </div>
               <div className="table-wrap">
                 <table className="selected-worklog-table">
@@ -4306,7 +4570,9 @@ function App() {
                 >
                   달력으로
                 </button>
-                {renderOutputButtons(allWorkLogsExportTable)}
+                {renderOutputButtons(allWorkLogsExportTable, (records) =>
+                  importWorkLogsFromCsv(records),
+                )}
               </div>
 
               <div className="worklog-list-toolbar">
