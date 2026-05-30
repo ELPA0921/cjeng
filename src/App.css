@@ -1078,7 +1078,25 @@ tr.selected-row td {
   padding: 0;
 }
 
-.calendar-day div {
+.calendar-date-row {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.calendar-holiday-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #d64545;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-day-events {
   display: grid;
   gap: 3px;
 }
@@ -1585,6 +1603,33 @@ input[type='checkbox'] {
 .detail-tabs span,
 .calendar-date-button {
   color: var(--accent);
+}
+
+.calendar-weekday:first-child,
+.calendar-day.sunday .calendar-date-button {
+  color: #d64545;
+}
+
+.calendar-weekday:nth-child(7),
+.calendar-day.saturday .calendar-date-button {
+  color: #1d4ed8;
+}
+
+.calendar-day.holiday .calendar-date-button {
+  color: #d64545;
+}
+
+.calendar-day.muted.sunday .calendar-date-button,
+.calendar-day.muted .calendar-holiday-name {
+  color: #ef8f8f;
+}
+
+.calendar-day.muted.saturday .calendar-date-button {
+  color: #84a9ef;
+}
+
+.calendar-day.muted.holiday .calendar-date-button {
+  color: #ef8f8f;
 }
 
 .text-link:hover {

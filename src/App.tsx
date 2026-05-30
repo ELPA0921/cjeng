@@ -735,6 +735,42 @@ function calculateExpenseAmountFields<
 const today = formatDateOnly(new Date())
 const currentYear = today.slice(0, 4)
 const defaultProjectId = defaultOrders[5].id
+const koreanSolarHolidayNames = new Map([
+  ['01-01', '신정'],
+  ['03-01', '삼일절'],
+  ['05-05', '어린이날'],
+  ['06-06', '현충일'],
+  ['08-15', '광복절'],
+  ['10-03', '개천절'],
+  ['10-09', '한글날'],
+  ['12-25', '성탄절'],
+])
+const koreanDatedPublicHolidayNames = new Map([
+  ['2025-01-27', '임시공휴일'],
+  ['2025-01-28', '설연휴'],
+  ['2025-01-29', '설날'],
+  ['2025-01-30', '설연휴'],
+  ['2025-03-03', '대체공휴일'],
+  ['2025-05-05', '어린이날/부처님오신날'],
+  ['2025-05-06', '대체공휴일'],
+  ['2025-06-03', '선거일'],
+  ['2025-10-05', '추석연휴'],
+  ['2025-10-06', '추석'],
+  ['2025-10-07', '추석연휴'],
+  ['2025-10-08', '대체공휴일'],
+  ['2026-02-16', '설연휴'],
+  ['2026-02-17', '설날'],
+  ['2026-02-18', '설연휴'],
+  ['2026-03-02', '대체공휴일'],
+  ['2026-05-24', '부처님오신날'],
+  ['2026-05-25', '대체공휴일'],
+  ['2026-06-03', '선거일'],
+  ['2026-08-17', '대체공휴일'],
+  ['2026-09-24', '추석연휴'],
+  ['2026-09-25', '추석'],
+  ['2026-09-26', '추석연휴'],
+  ['2026-10-05', '대체공휴일'],
+])
 
 function getOrderYear(order: Order) {
   if (order.year) return order.year
@@ -783,15 +819,37 @@ function getMonthDays(monthText: string) {
     })
   }
 
+  let trailingDay = 1
+
   while (days.length % 7 !== 0) {
-    const date = new Date(year, month - 1, lastDate.getDate() + days.length)
+    const date = new Date(year, month, trailingDay)
     days.push({
       date: formatDateOnly(date),
       isCurrentMonth: false,
     })
+    trailingDay += 1
   }
 
   return days
+}
+
+function getDateWeekday(dateText: string) {
+  const [year, month, day] = dateText.split('-').map(Number)
+
+  return new Date(year, month - 1, day).getDay()
+}
+
+function getKoreanPublicHolidayName(dateText: string) {
+  const year = Number(dateText.slice(0, 4))
+  const monthDay = dateText.slice(5)
+
+  if (year >= 2026 && monthDay === '05-01') return '노동절'
+  if (year >= 2026 && monthDay === '07-17') return '제헌절'
+
+  return (
+    koreanDatedPublicHolidayNames.get(dateText) ??
+    koreanSolarHolidayNames.get(monthDay)
+  )
 }
 
 function moveMonth(monthText: string, amount: number) {
@@ -4126,6 +4184,18 @@ function App() {
                   </div>
                 ))}
                 {calendarDays.map((day) => {
+                  const weekday = getDateWeekday(day.date)
+                  const holidayName = getKoreanPublicHolidayName(day.date)
+                  const dayClassNames = [
+                    'calendar-day',
+                    day.isCurrentMonth ? '' : 'muted',
+                    day.date === today ? 'today' : '',
+                    weekday === 0 ? 'sunday' : '',
+                    weekday === 6 ? 'saturday' : '',
+                    holidayName ? 'holiday' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')
                   const dayLogs = calendarWorkLogs.filter(
                     (workLog) => workLog.date === day.date,
                   )
@@ -4147,24 +4217,29 @@ function App() {
 
                   return (
                     <div
-                      className={`calendar-day ${
-                        day.isCurrentMonth ? '' : 'muted'
-                      } ${day.date === today ? 'today' : ''}`}
+                      className={dayClassNames}
                       key={day.date}
                     >
-                      <button
-                        className="calendar-date-button"
-                        type="button"
-                        onClick={() =>
-                          setWorkLogForm((current) => ({
-                            ...current,
-                            date: day.date,
-                          }))
-                        }
-                      >
-                        {Number(day.date.slice(8, 10))}
-                      </button>
-                      <div>
+                      <div className="calendar-date-row">
+                        <button
+                          className="calendar-date-button"
+                          type="button"
+                          onClick={() =>
+                            setWorkLogForm((current) => ({
+                              ...current,
+                              date: day.date,
+                            }))
+                          }
+                        >
+                          {Number(day.date.slice(8, 10))}
+                        </button>
+                        {holidayName && (
+                          <span className="calendar-holiday-name">
+                            {holidayName}
+                          </span>
+                        )}
+                      </div>
+                      <div className="calendar-day-events">
                         {dayProjectGroups.slice(0, 2).map((group) => (
                           <button
                             className="calendar-entry"
