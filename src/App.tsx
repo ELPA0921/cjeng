@@ -915,20 +915,7 @@ function getProjectStatus(order: Order) {
   return '진행중'
 }
 
-const adminCredentials = {
-  username: 'admin',
-  password: 'cjeng2026',
-}
-
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => localStorage.getItem('cost-app-authenticated') === 'true',
-  )
-  const [loginForm, setLoginForm] = useState({
-    username: '',
-    password: '',
-  })
-  const [loginError, setLoginError] = useState('')
   const [view, setView] = useState<View>('home')
   const [viewHistory, setViewHistory] = useState<View[]>([])
   const [viewFuture, setViewFuture] = useState<View[]>([])
@@ -1086,31 +1073,6 @@ function App() {
       JSON.stringify(customVendorContacts),
     )
   }, [customVendorContacts])
-
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    if (
-      loginForm.username.trim() === adminCredentials.username &&
-      loginForm.password === adminCredentials.password
-    ) {
-      localStorage.setItem('cost-app-authenticated', 'true')
-      setIsAuthenticated(true)
-      setLoginError('')
-      setLoginForm({ username: '', password: '' })
-      return
-    }
-
-    setLoginError('아이디 또는 비밀번호를 확인해주세요.')
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('cost-app-authenticated')
-    setIsAuthenticated(false)
-    setView('home')
-    setViewHistory([])
-    setViewFuture([])
-  }
 
   const navigateTo = (nextView: View) => {
     if (nextView === view) return
@@ -2489,54 +2451,6 @@ function App() {
     setIsWorkLogModalOpen(false)
   }
 
-  if (!isAuthenticated) {
-    return (
-      <main className="login-shell">
-        <section className="login-panel" aria-label="관리자 로그인">
-          <img className="login-logo" src="/cj-logo-white.jpg" alt="창조이엔지" />
-          <form className="login-form" onSubmit={handleLogin}>
-            <label>
-              아이디
-              <input
-                autoComplete="username"
-                name="username"
-                required
-                type="text"
-                value={loginForm.username}
-                onChange={(event) =>
-                  setLoginForm((current) => ({
-                    ...current,
-                    username: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <label>
-              비밀번호
-              <input
-                autoComplete="current-password"
-                name="password"
-                required
-                type="password"
-                value={loginForm.password}
-                onChange={(event) =>
-                  setLoginForm((current) => ({
-                    ...current,
-                    password: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            {loginError && <p className="login-error">{loginError}</p>}
-            <button className="primary-button" type="submit">
-              로그인
-            </button>
-          </form>
-        </section>
-      </main>
-    )
-  }
-
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -2594,9 +2508,6 @@ function App() {
           </button>
         </nav>
 
-        <button className="logout-button" type="button" onClick={handleLogout}>
-          로그아웃
-        </button>
       </aside>
 
       <section className="workspace">

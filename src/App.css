@@ -27,54 +27,6 @@
   color: var(--text);
 }
 
-.login-shell {
-  display: grid;
-  place-items: center;
-  min-height: 100vh;
-  padding: 24px;
-  background: var(--page-bg);
-  color: var(--text);
-}
-
-.login-panel {
-  width: min(100%, 420px);
-  padding: 30px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow-panel);
-}
-
-.login-logo {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin-bottom: 24px;
-}
-
-.login-form {
-  display: grid;
-  gap: 16px;
-}
-
-.login-form label {
-  display: grid;
-  gap: 8px;
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.login-error {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 6px;
-  background: var(--danger-bg);
-  color: var(--danger);
-  font-size: 13px;
-  font-weight: 800;
-}
-
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -117,22 +69,6 @@
   height: auto;
   max-height: 62px;
   object-fit: contain;
-}
-
-.logout-button {
-  min-height: 42px;
-  margin-top: auto;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #f8fafc;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 800;
-}
-
-.logout-button:hover {
-  background: rgba(255, 255, 255, 0.12);
 }
 
 .sidebar h1,
