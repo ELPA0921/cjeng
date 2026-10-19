@@ -1,6 +1,14 @@
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/PretendardVariable.woff2') format('woff2');
+}
+
 :root {
   font-family:
-    Pretendard, 'Segoe UI', 'Malgun Gothic', system-ui, -apple-system,
+    'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, -apple-system,
     sans-serif;
   color: #18232f;
   background: #f4f6f8;
@@ -17,6 +25,10 @@
 body {
   min-width: 320px;
   margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 button,

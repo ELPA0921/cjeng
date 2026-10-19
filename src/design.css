@@ -157,3 +157,25 @@ input[type='checkbox'] { accent-color: #688c35; }
   .welcome-banner::after { right: -190px; bottom: -230px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+
+/* Korean typography: legible body copy and balanced variable weights. */
+.nav-tabs button { font-size: 14px; font-weight: 600; }
+.home-list-item strong { font-size: 14px; line-height: 1.6; }
+.home-list-item small, .panel-heading span { font-size: 12px; line-height: 1.6; }
+.home-list-item b { font-size: 13px; font-weight: 650; }
+.welcome-banner p:not(.section-kicker) { font-size: 14px; line-height: 1.8; }
+.home-shortcuts strong, .sidebar-note strong { font-size: 13px; }
+.home-shortcuts small, .sidebar-note p { font-size: 11px; }
+th, .sort-button { font-size: 12px; font-weight: 600; }
+td { font-size: 13px; line-height: 1.65; }
+input, select, textarea, .form-panel label { font-size: 14px; }
+.primary-button, .ghost-button { font-size: 13px; }
+.metric-grid article > span { font-size: 13px; }
+@media (max-width: 720px) {
+  .nav-tabs button { font-size: 12px; }
+  .welcome-banner p:not(.section-kicker) { font-size: 12px; }
+  .metric-grid article > span { font-size: 12px; }
+  .metric-grid article > strong { font-size: clamp(16px, 5vw, 22px); white-space: nowrap; letter-spacing: -.8px; }
+  .home-shortcuts strong { font-size: 12px; }
+  .home-shortcuts small { font-size: 10px; }
+}
