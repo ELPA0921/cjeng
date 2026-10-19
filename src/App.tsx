@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import './App.css'
+import './design.css'
 import {
   orderVendorContacts,
   purchaseVendorContacts,
@@ -913,6 +914,21 @@ function getProjectStatus(order: Order) {
   if (order.expectedCompletionDate < today) return '준공'
   if (order.orderDate > today) return '예정'
   return '진행중'
+}
+
+type IconName = 'home' | 'orders' | 'dashboard' | 'expenses' | 'worklogs' | 'contacts' | 'arrow' | 'plus'
+function Icon({ name }: { name: IconName }) {
+  const paths: Record<IconName, string> = {
+    home: 'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9',
+    orders: 'M8 4H5v17h14V4h-3M9 3h6v4H9zM9 11h6M9 15h6',
+    dashboard: 'M4 20V10h4v10M10 20V4h4v16M16 20v-8h4v8',
+    expenses: 'M3 6h18v14H3zM3 10h18M15 15h3M6 3v3',
+    worklogs: 'M4 5h16v16H4zM8 3v4M16 3v4M4 11h16M8 15h2M14 15h2',
+    contacts: 'M16 21v-3a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v3M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8M17 3a4 4 0 0 1 0 8M22 21v-3a4 4 0 0 0-3-3.87',
+    arrow: 'M5 12h14M13 6l6 6-6 6',
+    plus: 'M12 5v14M5 12h14',
+  }
+  return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>
 }
 
 function App() {
@@ -2454,60 +2470,26 @@ function App() {
   return (
     <main className="app-shell">
       <aside className="sidebar">
-        <button
-          className="brand-home"
-          type="button"
-          aria-label="홈으로 이동"
-          onClick={() => navigateTo('home')}
-        >
-          <img src="/cj-logo-white.jpg" alt="창조이엔지" />
+        <button className="brand-home" type="button" aria-label="홈으로 이동" onClick={() => navigateTo('home')}>
+          <span className="brand-symbol" aria-hidden="true">c<span>.</span></span>
+          <span className="brand-wordmark">창조이엔지<small>CONSTRUCTION WORKSPACE</small></span>
         </button>
-
+        <div className="workspace-label"><span className="workspace-avatar">CJ</span><span>공사 관리 워크스페이스<small>CHANGJO ENGINEERING</small></span></div>
+        <p className="nav-caption">워크스페이스</p>
         <nav className="nav-tabs" aria-label="주요 메뉴">
-          <button
-            className={view === 'home' ? 'active' : ''}
-            type="button"
-            onClick={() => navigateTo('home')}
-          >
-            홈
-          </button>
-          <button
-            className={view === 'orders' ? 'active' : ''}
-            type="button"
-            onClick={() => navigateTo('orders')}
-          >
-            수주대장
-          </button>
-          <button
-            className={view === 'dashboard' ? 'active' : ''}
-            type="button"
-            onClick={() => navigateTo('dashboard')}
-          >
-            공사현황
-          </button>
-          <button
-            className={view === 'expenses' ? 'active' : ''}
-            type="button"
-            onClick={() => navigateTo('expenses')}
-          >
-            지출내역
-          </button>
-          <button
-            className={view === 'worklogs' || view === 'worklogList' ? 'active' : ''}
-            type="button"
-            onClick={() => navigateTo('worklogs')}
-          >
-            작업일보
-          </button>
-          <button
-            className={view === 'contacts' ? 'active' : ''}
-            type="button"
-            onClick={() => navigateTo('contacts')}
-          >
-            거래처내역
-          </button>
+          {([
+            ['home', '홈'], ['orders', '수주대장'], ['dashboard', '공사현황'],
+            ['expenses', '지출내역'], ['worklogs', '작업일보'], ['contacts', '거래처내역'],
+          ] as const).map(([target, label]) => (
+            <button key={target} className={view === target || (target === 'worklogs' && view === 'worklogList') ? 'active' : ''}
+              aria-current={view === target || (target === 'worklogs' && view === 'worklogList') ? 'page' : undefined}
+              type="button" onClick={() => navigateTo(target)}>
+              <Icon name={target} /><span>{label}</span>{target === 'orders' && <small>{orders.length}</small>}
+            </button>
+          ))}
         </nav>
-
+        <div className="sidebar-note"><span className="note-mark">✳</span><strong>현장의 모든 흐름을 한곳에.</strong><p>수주부터 작업일보까지,<br />더 가볍고 명확하게 관리하세요.</p><button type="button" onClick={() => navigateTo('worklogs')}>작업일보 열기 <Icon name="arrow" /></button></div>
+        <div className="sidebar-footer"><span className="workspace-avatar">창</span><span>주식회사 창조이엔지<small>공사 관리 시스템</small></span></div>
       </aside>
 
       <section className="workspace">
@@ -2621,20 +2603,25 @@ function App() {
 
         {view === 'home' && (
           <section className="home-view">
+            <section className="welcome-banner">
+              <div><p className="section-kicker">YOUR WORK, IN VIEW</p><h1>오늘의 현장, 한눈에.</h1><p>진행 중인 공사와 지출 흐름을 살펴보고<br className="mobile-break" /> 다음 업무를 시작하세요.</p><button className="welcome-action" type="button" onClick={openNewOrderModal}><Icon name="plus" /> 수주 등록하기 <Icon name="arrow" /></button></div>
+              <div className="progress-visual"><div className="progress-ring" role="img" aria-label={`전체 수주 중 진행 중 공사 ${activeProjectCount}건`} style={{ background: `conic-gradient(#527d25 0% ${orders.length ? activeProjectCount / orders.length * 100 : 0}%, #d6e9ad 0% 100%)` }}><div><span>진행 중인 공사</span><strong>{activeProjectCount}<small>건</small></strong><span>전체 {orders.length}건 중</span></div></div><span className="visual-caption"><i /> 현장 진행 현황</span></div>
+            </section>
+            <div className="section-label"><h3>전체 업무 요약</h3><span>모든 연도 기준</span></div>
             <section className="metric-grid" aria-label="전체 요약">
-              <article>
+              <article><div className="metric-icon"><Icon name="orders" /></div>
                 <span>전체 수주</span>
                 <strong>{orders.length}건</strong>
               </article>
-              <article>
+              <article><div className="metric-icon"><Icon name="dashboard" /></div>
                 <span>진행중 공사</span>
                 <strong>{activeProjectCount}건</strong>
               </article>
-              <article>
+              <article><div className="metric-icon"><Icon name="expenses" /></div>
                 <span>전체 공사비</span>
                 <strong>{formatMoney(totalCost)}</strong>
               </article>
-              <article>
+              <article><div className="metric-icon"><Icon name="contacts" /></div>
                 <span>전체 공수</span>
                 <strong>{(totalHours / 8).toFixed(2)}명</strong>
               </article>
@@ -2689,7 +2676,7 @@ function App() {
                     현황보기
                   </button>
                 </div>
-                <div className="home-list">
+                <div className="home-list cost-list">
                   {highCostProjects.map((project) => (
                     <button
                       className="home-list-item"
@@ -2699,7 +2686,7 @@ function App() {
                     >
                       <span>
                         <strong>{project.projectName}</strong>
-                        <small>{project.region}</small>
+                        <small>{project.region}</small><span className="cost-track" aria-hidden="true"><span style={{ width: `${project.cost / Math.max(1, ...highCostProjects.map(item => item.cost)) * 100}%` }} /></span>
                       </span>
                       <b>{formatMoney(project.cost)}</b>
                     </button>
@@ -2708,19 +2695,8 @@ function App() {
               </article>
             </section>
 
-            <section className="panel home-shortcuts">
-              <button type="button" onClick={() => navigateTo('orders')}>
-                수주대장
-              </button>
-              <button type="button" onClick={() => navigateTo('expenses')}>
-                지출내역
-              </button>
-              <button type="button" onClick={() => navigateTo('worklogs')}>
-                작업일보
-              </button>
-              <button type="button" onClick={() => navigateTo('contacts')}>
-                거래처 확인
-              </button>
+            <section className="home-shortcuts" aria-label="빠른 업무 시작">
+              {([['orders', '수주대장', '새로운 공사의 시작'], ['expenses', '지출내역', '꼼꼼하게 살피는 공사비'], ['worklogs', '작업일보', '매일 쌓이는 현장 기록'], ['contacts', '거래처 확인', '함께하는 파트너']] as const).map(([target, label, description]) => <button key={target} type="button" onClick={() => navigateTo(target)}><Icon name={target} /><span><strong>{label}</strong><small>{description}</small></span><Icon name="arrow" /></button>)}
             </section>
           </section>
         )}
