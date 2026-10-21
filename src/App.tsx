@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import './App.css'
 import './design.css'
+import DeliveryPerformance from './DeliveryPerformance'
 import {
   orderVendorContacts,
   purchaseVendorContacts,
@@ -84,6 +85,7 @@ type View =
   | 'expenses'
   | 'worklogs'
   | 'worklogList'
+  | 'deliveries'
   | 'contacts'
 type ProjectDetailTab = 'worklogs' | 'expenses' | 'purchases'
 type ContactTab = 'purchase' | 'order'
@@ -916,7 +918,7 @@ function getProjectStatus(order: Order) {
   return '진행중'
 }
 
-type IconName = 'home' | 'orders' | 'dashboard' | 'expenses' | 'worklogs' | 'contacts' | 'arrow' | 'plus'
+type IconName = 'home' | 'orders' | 'dashboard' | 'expenses' | 'worklogs' | 'deliveries' | 'contacts' | 'arrow' | 'plus'
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
     home: 'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9',
@@ -924,6 +926,7 @@ function Icon({ name }: { name: IconName }) {
     dashboard: 'M4 20V10h4v10M10 20V4h4v16M16 20v-8h4v8',
     expenses: 'M3 6h18v14H3zM3 10h18M15 15h3M6 3v3',
     worklogs: 'M4 5h16v16H4zM8 3v4M16 3v4M4 11h16M8 15h2M14 15h2',
+    deliveries: 'M3 4h12v13H3zM15 9h4l3 4v4h-7M5 17a2 2 0 1 0 4 0M16 17a2 2 0 1 0 4 0M3 8h12',
     contacts: 'M16 21v-3a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v3M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8M17 3a4 4 0 0 1 0 8M22 21v-3a4 4 0 0 0-3-3.87',
     arrow: 'M5 12h14M13 6l6 6-6 6',
     plus: 'M12 5v14M5 12h14',
@@ -2479,7 +2482,7 @@ function App() {
         <nav className="nav-tabs" aria-label="주요 메뉴">
           {([
             ['home', '홈'], ['orders', '수주대장'], ['dashboard', '공사현황'],
-            ['expenses', '지출내역'], ['worklogs', '작업일보'], ['contacts', '거래처내역'],
+            ['expenses', '지출내역'], ['worklogs', '작업일보'], ['deliveries', '납품실적'], ['contacts', '거래처내역'],
           ] as const).map(([target, label]) => (
             <button key={target} className={view === target || (target === 'worklogs' && view === 'worklogList') ? 'active' : ''}
               aria-current={view === target || (target === 'worklogs' && view === 'worklogList') ? 'page' : undefined}
@@ -2516,7 +2519,7 @@ function App() {
           </div>
           <div>
             <p className="eyebrow">
-              {view === 'home'
+              {view === 'deliveries' ? '납품실적' : view === 'home'
                 ? '홈'
                 : view === 'orders'
                 ? '수주대장'
@@ -2533,7 +2536,7 @@ function App() {
                         : '작업일보'}
             </p>
             <h2>
-              {view === 'home'
+              {view === 'deliveries' ? '납품실적' : view === 'home'
                 ? '전체 현황'
                 : view === 'orders'
                 ? `${orderYear}년 수주대장`
@@ -2551,7 +2554,7 @@ function App() {
             </h2>
           </div>
           <div className="topbar-actions">
-            {view === 'home' ? (
+            {view === 'deliveries' ? <span>납품실적 관리</span> : view === 'home' ? (
               <>
                 <span>진행중 {activeProjectCount}건</span>
                 <span>전체 {orders.length}건</span>
@@ -2601,6 +2604,7 @@ function App() {
           </div>
         </header>
 
+        {view === 'deliveries' && <DeliveryPerformance />}
         {view === 'home' && (
           <section className="home-view">
             <section className="welcome-banner">
