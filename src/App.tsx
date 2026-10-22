@@ -2348,7 +2348,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                           {project.orderNo} · {project.client1}
                         </small>
                       </span>
-                      <em>{project.status}</em>
+                      <em className="status" data-order-status={project.status}>{project.status}</em>
                     </button>
                   ))}
                 </div>
@@ -2826,7 +2826,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                           {order.expectedCompletionDate}
                         </td>
                         <td className="order-center">
-                          <span className="status">{getProjectStatus(order)}</span>
+                          <span className="status" data-order-status={getProjectStatus(order)}>{getProjectStatus(order)}</span>
                         </td>
                         <td className="order-center">{order.manager}</td>
                         <td className="order-center">{order.client1}</td>
