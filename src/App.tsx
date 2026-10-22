@@ -3984,7 +3984,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     </button>
                   </div>
                   <div className="table-wrap">
-                    <table>
+                    <table className="worklog-detail-table">
                       <thead>
                         <tr>
                           <th>{renderWorkLogSortButton('worker', '작업자')}</th>

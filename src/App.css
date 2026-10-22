@@ -1214,6 +1214,16 @@ tr.selected-row td {
   font-weight: 900;
 }
 
+.worklog-detail-table th,
+.worklog-detail-table td {
+  text-align: center;
+}
+
+.worklog-detail-table th:nth-child(6),
+.worklog-detail-table td:nth-child(6) {
+  text-align: left;
+}
+
 .small-modal {
   width: min(760px, 100%);
 }
