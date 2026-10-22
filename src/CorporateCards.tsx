@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { ConnectedCard, CardApprovalPage } from './cardTypes'
+import { cardSupplyAmount } from './cardAmounts'
 import './CorporateCards.css'
 
 async function request<T>(input: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
@@ -72,14 +73,18 @@ export default function CorporateCards() {
       {result ? <>
         <div className="card-results-heading"><strong>조회 결과 {result.total.toLocaleString('ko-KR')}건</strong><span>{result.card.company} {result.card.number} · {result.startDate} ~ {result.endDate}</span></div>
         <div className="table-wrap card-results-scroll" role="region" aria-label="법인카드 승인내역" tabIndex={0}>
-          <table className="card-results-table"><thead><tr><th>사용일시 ↑</th><th>가맹점</th><th>승인구분</th><th>승인번호</th><th>통화</th><th>승인금액</th><th>공급가액</th><th>부가세</th><th>봉사료</th><th>메모</th></tr></thead>
-            <tbody>{result.records.map(row => <tr key={row.id}><td>{row.dateTime}</td><td>{row.store || '-'}</td><td><span className={/취소|환불|거절/.test(row.approvalType) ? 'card-cancelled' : ''}>{row.approvalType || '-'}</span></td><td>{row.approvalNumber || '-'}</td><td>{row.currency}</td><td>{money(row.amount)}</td><td>{money(row.supplyAmount)}</td><td>{money(row.vatAmount)}</td><td>{money(row.serviceCharge)}</td><td>{row.memo || '-'}</td></tr>)}
-              {result.records.length === 0 && <tr><td colSpan={10}>해당 기간에 수집된 승인내역이 없습니다.</td></tr>}
+          <table className="card-results-table"><thead><tr><th>사용일시 ↑</th><th>가맹점</th><th>승인구분</th><th>승인번호</th><th>통화</th><th>승인금액</th><th>공급가액</th><th>부가세</th><th>메모</th></tr></thead>
+            <tbody>{result.records.map(row => {
+              const supply = cardSupplyAmount(row)
+              return <tr key={row.id}><td>{row.dateTime}</td><td>{row.store || '-'}</td><td><span className={/취소|환불|거절/.test(row.approvalType) ? 'card-cancelled' : ''}>{row.approvalType || '-'}</span></td><td>{row.approvalNumber || '-'}</td><td>{row.currency}</td><td>{money(row.amount)}</td><td>{money(supply.value)}{supply.calculated && <small className="card-calculated" title="승인금액에서 부가세와 봉사료를 제외한 계산값">계산</small>}</td><td>{money(row.vatAmount)}</td><td>{row.memo || '-'}</td></tr>
+            })}
+              {result.records.length === 0 && <tr><td colSpan={9}>해당 기간에 수집된 승인내역이 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>
         <div className="card-pagination"><button className="ghost-button" disabled={loading || result.page <= 1} onClick={() => void query(result.page - 1)}>이전 페이지</button><span>{result.page} / {Math.max(1, result.totalPages)} 페이지</span><button className="ghost-button" disabled={loading || result.page >= result.totalPages} onClick={() => void query(result.page + 1)}>다음 페이지</button></div>
-        <p className="card-query-hint">금액과 승인구분은 바로빌 원본 기준입니다. 조회 내역은 공사별 지출에 자동 등록되지 않습니다.</p>
+        <p className="card-query-hint">공급가액이 없거나 0인 원화 내역은 부가세·봉사료가 제공된 경우 승인금액에서 두 금액을 제외해 계산합니다. 계산한 공급가액은 ‘계산’으로 표시합니다.</p>
+        <p className="card-query-hint">조회 내역은 공사별 지출에 자동 등록되지 않습니다.</p>
       </> : !busy && !error && cards.length > 0 && <div className="expense-source-empty"><strong>카드와 기간을 선택한 뒤 내역 조회를 눌러주세요.</strong><p>바로빌에서 수집한 사용내역을 확인할 수 있습니다.</p></div>}
     </div>
   </section>
