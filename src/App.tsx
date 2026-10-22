@@ -19,6 +19,7 @@ type Order = {
   client2: string
   region: string
   projectName: string
+  note?: string
 }
 
 type Expense = {
@@ -107,9 +108,9 @@ type OrderSortKey =
   | 'expectedCompletionDate'
   | 'manager'
   | 'client1'
-  | 'client2'
   | 'region'
   | 'projectName'
+  | 'note'
 type ExpenseSortKey =
   | 'date'
   | 'kind'
@@ -1054,6 +1055,7 @@ function App() {
     client2: '',
     region: '',
     projectName: '',
+    note: '',
   })
 
   useEffect(() => {
@@ -1394,10 +1396,10 @@ function App() {
       '준공예정일',
       '상태',
       '담당자',
-      '수주처1',
-      '수주처2',
-      '공사지역',
+      '수주처',
+      '공사현장',
       '공사명',
+      '비고',
     ],
     rows: filteredOrders.map((order) => [
       getOrderYear(order),
@@ -1407,9 +1409,9 @@ function App() {
       getProjectStatus(order),
       order.manager,
       order.client1,
-      order.client2,
       order.region,
       order.projectName,
+      order.note ?? '',
     ]),
   }
   const dashboardExportTable: ExportTable = {
@@ -1732,8 +1734,12 @@ function App() {
 
         if (!orderNo || !projectName) return ordersToImport
 
+        const existing = orders.find(
+          (order) => order.orderNo === orderNo && getOrderYear(order) === year,
+        )
+
         ordersToImport.push({
-          id: `o-${orderNo}-${crypto.randomUUID()}`,
+          id: existing?.id ?? `o-${orderNo}-${crypto.randomUUID()}`,
           year,
           orderNo,
           orderDate: parseCsvDate(getCsvValue(record, ['수주일자'])),
@@ -1741,10 +1747,15 @@ function App() {
             getCsvValue(record, ['준공예정일']),
           ),
           manager: getCsvValue(record, ['담당자']),
-          client1: getCsvValue(record, ['수주처1']),
-          client2: getCsvValue(record, ['수주처2']),
-          region: getCsvValue(record, ['공사지역']),
+          client1: getCsvValue(record, ['수주처', '수주처1']),
+          client2: record['수주처2'] === undefined
+            ? existing?.client2 ?? ''
+            : getCsvValue(record, ['수주처2']),
+          region: getCsvValue(record, ['공사현장', '공사지역']),
           projectName,
+          note: record['비고'] === undefined
+            ? existing?.note ?? ''
+            : getCsvValue(record, ['비고']),
         })
 
         return ordersToImport
@@ -2062,6 +2073,7 @@ function App() {
       client2: '',
       region: '',
       projectName: '',
+      note: '',
     })
     setIsOrderModalOpen(true)
   }
@@ -2087,6 +2099,7 @@ function App() {
       client2: order.client2,
       region: order.region,
       projectName: order.projectName,
+      note: order.note ?? '',
     })
     setIsOrderModalOpen(true)
   }
@@ -2130,6 +2143,7 @@ function App() {
                   client2: orderForm.client2,
                   region: orderForm.region,
                   projectName: orderForm.projectName,
+                  note: orderForm.note,
                 }
               : order,
           )
@@ -2153,6 +2167,7 @@ function App() {
       client2: orderForm.client2,
       region: orderForm.region,
       projectName: orderForm.projectName,
+      note: orderForm.note,
     }
 
     setOrders((current) =>
@@ -2172,6 +2187,7 @@ function App() {
       client2: '',
       region: '',
       projectName: '',
+      note: '',
     }))
     setIsOrderModalOpen(false)
     navigateTo('orders')
@@ -3064,9 +3080,9 @@ function App() {
                     <col className="orders-col-status" />
                     <col className="orders-col-manager" />
                     <col className="orders-col-client" />
-                    <col className="orders-col-client" />
                     <col className="orders-col-region" />
                     <col className="orders-col-project" />
+                    <col className="orders-col-note" />
                   </colgroup>
                   <thead>
                     <tr>
@@ -3091,10 +3107,10 @@ function App() {
                       </th>
                       <th>상태</th>
                       <th>{renderOrderSortButton('manager', '담당자')}</th>
-                      <th>{renderOrderSortButton('client1', '수주처1')}</th>
-                      <th>{renderOrderSortButton('client2', '수주처2')}</th>
-                      <th>{renderOrderSortButton('region', '공사지역')}</th>
+                      <th>{renderOrderSortButton('client1', '수주처')}</th>
+                      <th>{renderOrderSortButton('region', '공사현장')}</th>
                       <th>{renderOrderSortButton('projectName', '공사명')}</th>
+                      <th>{renderOrderSortButton('note', '비고')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3119,7 +3135,6 @@ function App() {
                         </td>
                         <td className="order-center">{order.manager}</td>
                         <td className="order-center">{order.client1}</td>
-                        <td className="order-center">{order.client2}</td>
                         <td className="order-center">{order.region}</td>
                         <td className="order-project-name">
                           <button
@@ -3130,6 +3145,7 @@ function App() {
                             {order.projectName}
                           </button>
                         </td>
+                        <td className="order-note">{order.note || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -3236,23 +3252,7 @@ function App() {
                   />
                 </label>
                 <label>
-                  공사지역
-                  <input
-                    value={orderForm.region}
-                    onChange={(event) =>
-                      setOrderForm({
-                        ...orderForm,
-                        region: event.target.value,
-                      })
-                    }
-                    placeholder="예: 경기 화성"
-                  />
-                </label>
-              </div>
-
-              <div className="two-columns">
-                <label>
-                  수주처1
+                  수주처
                   <input
                     value={orderForm.client1}
                     onChange={(event) =>
@@ -3264,17 +3264,20 @@ function App() {
                     placeholder="예: 한빛산업"
                   />
                 </label>
+              </div>
+
+              <div className="two-columns">
                 <label>
-                  수주처2
+                  공사현장
                   <input
-                    value={orderForm.client2}
+                    value={orderForm.region}
                     onChange={(event) =>
                       setOrderForm({
                         ...orderForm,
-                        client2: event.target.value,
+                        region: event.target.value,
                       })
                     }
-                    placeholder="예: 환경안전팀"
+                    placeholder="예: 경기 화성"
                   />
                 </label>
               </div>
@@ -3290,6 +3293,16 @@ function App() {
                     })
                   }
                   placeholder="예: 대기방지시설 개선공사"
+                />
+              </label>
+
+              <label>
+                비고
+                <textarea
+                  rows={3}
+                  value={orderForm.note}
+                  onChange={(event) => setOrderForm({ ...orderForm, note: event.target.value })}
+                  placeholder="추가로 기록할 내용을 입력하세요"
                 />
               </label>
 

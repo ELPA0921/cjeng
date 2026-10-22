@@ -512,7 +512,7 @@ table {
 
 .orders-table {
   table-layout: fixed;
-  min-width: 1240px;
+  min-width: 1400px;
 }
 
 .orders-col-check {
@@ -544,11 +544,21 @@ table {
 }
 
 .orders-col-region {
-  width: 112px;
+  width: 160px;
 }
 
 .orders-col-project {
   width: 320px;
+}
+
+.orders-col-note {
+  width: 200px;
+}
+
+.orders-table .order-note {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .expenses-table {
