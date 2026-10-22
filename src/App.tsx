@@ -33,6 +33,11 @@ type ExportTable = {
 type CsvRecord = Record<string, string>
 
 type View = NavigationRoute['view']
+const expenseMenus = [
+  ['expenses', '공사별 지출내역'],
+  ['taxInvoices', '전자세금계산서 조회'],
+  ['corporateCards', '법인카드 조회'],
+] as const
 type ProjectDetailTab = 'worklogs' | 'expenses' | 'purchases'
 type ContactTab = 'purchase' | 'order'
 type SortDirection = 'asc' | 'desc'
@@ -2159,8 +2164,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
             ['home', '홈'], ['orders', '수주대장'], ['dashboard', '공사현황'],
             ['expenses', '지출내역'], ['worklogs', '작업일보'], ['deliveries', '납품실적'], ['contacts', '거래처내역'],
           ] as const).map(([target, label]) => (
-            <button key={target} className={view === target || (target === 'worklogs' && view === 'worklogList') ? 'active' : ''}
-              aria-current={view === target || (target === 'worklogs' && view === 'worklogList') ? 'page' : undefined}
+            <button key={target} className={view === target || (target === 'worklogs' && view === 'worklogList') || (target === 'expenses' && expenseMenus.some(([screen]) => screen === view)) ? 'active' : ''}
+              aria-current={view === target || (target === 'worklogs' && view === 'worklogList') || (target === 'expenses' && expenseMenus.some(([screen]) => screen === view)) ? 'page' : undefined}
               type="button" onClick={() => navigateTo(target)}>
               <Icon name={target} /><span>{label}</span>{target === 'orders' && <small>{orders.length}</small>}
             </button>
@@ -2194,7 +2199,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           </div>
           <div>
             <p className="eyebrow">
-              {view === 'deliveries' ? '납품실적' : view === 'home'
+              {expenseMenus.some(([screen]) => screen === view) ? '지출내역' : view === 'deliveries' ? '납품실적' : view === 'home'
                 ? '홈'
                 : view === 'orders'
                 ? '수주대장'
@@ -2211,7 +2216,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                         : '작업일보'}
             </p>
             <h2>
-              {view === 'deliveries' ? '납품실적' : view === 'home'
+              {view === 'taxInvoices' ? '전자세금계산서 조회' : view === 'corporateCards' ? '법인카드 조회' : view === 'deliveries' ? '납품실적' : view === 'home'
                 ? '전체 현황'
                 : view === 'orders'
                 ? `${orderYear}년 수주대장`
@@ -2269,7 +2274,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   {workLogListYear === 'all' ? '전체년도' : `${workLogListYear}년`}
                 </span>
               </>
-            ) : view === 'worklogs' ? null : (
+            ) : view === 'worklogs' || view === 'taxInvoices' || view === 'corporateCards' ? null : (
               <>
                 <span>{selectedProject?.orderNo}</span>
                 <span>{selectedProject?.client1}</span>
@@ -2278,6 +2283,31 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
             )}
           </div>
         </header>
+
+        {expenseMenus.some(([screen]) => screen === view) && (
+          <nav className="expense-subnav" aria-label="지출내역 하위 메뉴">
+            {expenseMenus.map(([screen, label]) => (
+              <button key={screen} type="button" className={view === screen ? 'active' : ''}
+                aria-current={view === screen ? 'page' : undefined} onClick={() => navigateTo(screen)}>
+                {label}
+              </button>
+            ))}
+          </nav>
+        )}
+        {(view === 'taxInvoices' || view === 'corporateCards') && (
+          <section className="content-grid single">
+            <div className="panel full expense-source-panel">
+              <div className="panel-heading">
+                <h3>{view === 'corporateCards' ? '법인카드 사용내역' : '전자세금계산서 내역'}</h3>
+                <span className="expense-source-status">연동 준비 중</span>
+              </div>
+              <div className="expense-source-empty">
+                <strong>{view === 'corporateCards' ? '바로빌 법인카드 내역을 이곳에서 확인하세요.' : '전자세금계산서 내역을 이곳에서 확인하세요.'}</strong>
+                <p>{view === 'corporateCards' ? '바로빌 인증 설정 후 연결된 법인카드의 사용내역을 조회할 수 있습니다.' : '조회 연동을 준비하고 있습니다.'}</p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {view === 'deliveries' && <DeliveryPerformance workspaceStore={workspaceStore} />}
         {view === 'home' && (
