@@ -3869,7 +3869,13 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   )
                   const dayGroups = workCategories.map(category => ({
                     category, logs: dayLogs.filter(log => getWorkCategory(log) === category),
-                  })).filter(group => group.logs.length > 0)
+                  })).filter(group => group.logs.length > 0).map(group => ({
+                    ...group,
+                    orderNumbers: [...new Set(group.logs.flatMap(log => {
+                      const order = projectSummaries.find(project => project.id === log.projectId)
+                      return order ? [order.orderNo] : []
+                    }))].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true })),
+                  }))
 
                   return (
                     <div
@@ -3911,6 +3917,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                             }
                           >
                             {group.category} · {new Set(group.logs.map(log => log.worker)).size}명
+                            {group.orderNumbers.length > 0 && <small className="calendar-order-numbers">{group.orderNumbers.join(', ')}</small>}
                             <small>{(group.logs.reduce((sum, log) => sum + log.hours, 0) / 8).toFixed(2)}공수</small>
                           </button>
                         ))}

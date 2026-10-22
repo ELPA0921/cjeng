@@ -1107,6 +1107,7 @@ tr.selected-row td {
 }
 
 .calendar-entry small { display: block; font-size: inherit; }
+.calendar-order-numbers { overflow-wrap: anywhere; }
 
 [data-work-category='공장 직원'] { background: #dbeafe; color: #1e40af; }
 [data-work-category='공장 인력'] { background: #eff6ff; color: #1d4ed8; }
