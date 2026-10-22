@@ -2163,8 +2163,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     <main className="app-shell">
       <aside className="sidebar">
         <button className="brand-home" type="button" aria-label="홈으로 이동" onClick={() => navigateTo('home')}>
-          <span className="brand-symbol" aria-hidden="true">c<span>.</span></span>
-          <span className="brand-wordmark">창조이엔지<small>CONSTRUCTION WORKSPACE</small></span>
+          <img src="/changjo-logo.png" alt="주식회사 창조이엔지" width="994" height="284" />
         </button>
         <div className="workspace-label"><span className="workspace-avatar">CJ</span><span>공사 관리 워크스페이스<small>CHANGJO ENGINEERING</small></span></div>
         <p className="nav-caption">워크스페이스</p>
