@@ -444,6 +444,7 @@
 }
 
 .home-list-item em {
+  justify-content: center;
   flex: 0 0 auto;
   min-width: 52px;
   border-radius: 999px;

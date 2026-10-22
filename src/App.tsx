@@ -933,22 +933,12 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
 
       return purchaseOrderSort.direction === 'asc' ? result : -result
     })
-  const totalCost = projectSummaries.reduce(
-    (total, project) => total + project.cost,
-    0,
-  )
-  const totalHours = workLogs.reduce(
-    (total, log) => total + log.hours,
-    0,
-  )
-  const activeProjectCount = projectSummaries.filter(
-    (project) => project.status === '진행중',
-  ).length
+  const activeProjects = projectSummaries
+    .filter(project => project.status === '진행중')
+    .sort((a, b) => compareText(b.orderDate, a.orderDate))
+  const activeProjectCount = activeProjects.length
   const recentProjects = [...projectSummaries]
     .sort((a, b) => compareText(b.orderDate, a.orderDate))
-    .slice(0, 5)
-  const highCostProjects = [...projectSummaries]
-    .sort((a, b) => b.cost - a.cost)
     .slice(0, 5)
   const calendarDays = getMonthDays(workLogMonth)
   const calendarWorkLogs = workLogs.filter((workLog) =>
@@ -2310,25 +2300,6 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
               <div><p className="section-kicker">YOUR WORK, IN VIEW</p><h1>오늘의 현장, 한눈에.</h1><p>진행 중인 공사와 지출 흐름을 살펴보고<br className="mobile-break" /> 다음 업무를 시작하세요.</p><button className="welcome-action" type="button" onClick={openNewOrderModal}><Icon name="plus" /> 수주 등록하기 <Icon name="arrow" /></button></div>
               <div className="progress-visual"><div className="progress-ring" role="img" aria-label={`전체 수주 중 진행 중 공사 ${activeProjectCount}건`} style={{ background: `conic-gradient(#1d7656 0% ${orders.length ? activeProjectCount / orders.length * 100 : 0}%, #dbe9de 0% 100%)` }}><div><span>진행 중인 공사</span><strong>{activeProjectCount}<small>건</small></strong><span>전체 {orders.length}건 중</span></div></div><span className="visual-caption"><i /> 현장 진행 현황</span></div>
             </section>
-            <div className="section-label"><h3>전체 업무 요약</h3><span>모든 연도 기준</span></div>
-            <section className="metric-grid" aria-label="전체 요약">
-              <article><div className="metric-icon"><Icon name="orders" /></div>
-                <span>전체 수주</span>
-                <strong>{orders.length}건</strong>
-              </article>
-              <article><div className="metric-icon"><Icon name="dashboard" /></div>
-                <span>진행중 공사</span>
-                <strong>{activeProjectCount}건</strong>
-              </article>
-              <article><div className="metric-icon"><Icon name="expenses" /></div>
-                <span>전체 공사비</span>
-                <strong>{formatMoney(totalCost)}</strong>
-              </article>
-              <article><div className="metric-icon"><Icon name="contacts" /></div>
-                <span>전체 공수</span>
-                <strong>{(totalHours / 8).toFixed(2)}명</strong>
-              </article>
-            </section>
 
             <section className="home-grid">
               <article className="panel home-panel">
@@ -2368,8 +2339,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
               <article className="panel home-panel">
                 <div className="panel-heading">
                   <div>
-                    <h3>공사비 상위</h3>
-                    <span>지출금액 기준</span>
+                    <h3>진행중인 공사 내역</h3>
+                    <span>진행중 {activeProjectCount}건 · 최근 수주일 순</span>
                   </div>
                   <button
                     className="text-link"
@@ -2379,8 +2350,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     현황보기
                   </button>
                 </div>
-                <div className="home-list cost-list">
-                  {highCostProjects.map((project) => (
+                <div className="home-list">
+                  {activeProjects.map((project) => (
                     <button
                       className="home-list-item"
                       key={project.id}
@@ -2389,11 +2360,13 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     >
                       <span>
                         <strong>{project.projectName}</strong>
-                        <small>{project.region}</small><span className="cost-track" aria-hidden="true"><span style={{ width: `${project.cost / Math.max(1, ...highCostProjects.map(item => item.cost)) * 100}%` }} /></span>
+                        <small>{project.orderNo} · {project.client1}</small>
+                        <small>{[project.region, project.expectedCompletionDate ? `준공예정 ${project.expectedCompletionDate}` : ''].filter(Boolean).join(' · ')}</small>
                       </span>
-                      <b>{formatMoney(project.cost)}</b>
+                      <em className="status" data-order-status={project.status}>{project.status}</em>
                     </button>
                   ))}
+                  {activeProjects.length === 0 && <p>진행중인 공사가 없습니다.</p>}
                 </div>
               </article>
             </section>
