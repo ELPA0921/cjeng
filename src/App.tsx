@@ -3164,7 +3164,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     <span>작업시간을 8시간 기준 공수로 환산</span>
                   </div>
                   <div className="table-wrap">
-                    <table>
+                    <table className="selected-worklog-table">
                       <thead>
                         <tr>
                           <th>{renderWorkLogSortButton('date', '작업일')}</th>

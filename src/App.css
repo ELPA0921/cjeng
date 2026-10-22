@@ -1194,19 +1194,9 @@ tr.selected-row td {
   white-space: normal;
 }
 
-.worklog-list-table td:nth-child(8),
-.worklog-list-table td:nth-child(10) {
-  text-align: left;
-}
-
 .selected-worklog-table th,
 .selected-worklog-table td {
   text-align: center;
-}
-
-.selected-worklog-table td:nth-child(8),
-.selected-worklog-table td:nth-child(9) {
-  text-align: left;
 }
 
 .selected-worklog-table tfoot td {
@@ -1217,11 +1207,6 @@ tr.selected-row td {
 .worklog-detail-table th,
 .worklog-detail-table td {
   text-align: center;
-}
-
-.worklog-detail-table th:nth-child(6),
-.worklog-detail-table td:nth-child(6) {
-  text-align: left;
 }
 
 .small-modal {
