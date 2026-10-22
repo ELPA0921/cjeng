@@ -131,9 +131,6 @@ const formatNumber = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value)
 
-const formatTableDate = (value: string) =>
-  value ? `${value.replaceAll('-', '. ')}.` : ''
-
 const escapeHtml = (value: ExportCell) =>
   String(value)
     .replaceAll('&', '&amp;')
@@ -1068,8 +1065,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     rows: filteredOrders.map((order) => [
       getOrderYear(order),
       order.orderNo,
-      formatTableDate(order.orderDate),
-      formatTableDate(order.expectedCompletionDate),
+      order.orderDate,
+      order.expectedCompletionDate,
       getProjectStatus(order),
       order.manager,
       order.client1,
@@ -1112,7 +1109,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
       '카드번호',
     ],
     rows: filteredExpenses.map((expense) => [
-      formatTableDate(expense.date),
+      expense.date,
       expense.vendor,
       expense.memo || '-',
       formatNumber(getExpenseSupplyAmount(expense)),
@@ -1153,7 +1150,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
       '공수',
     ],
     rows: filteredWorkLogs.map((workLog) => [
-      formatTableDate(workLog.date),
+      workLog.date,
       workLog.worker,
       workLog.workerType,
       workLog.startTime,
@@ -1204,7 +1201,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
       const project = projectSummaries.find((item) => item.id === workLog.projectId)
 
       return [
-        formatTableDate(workLog.date),
+        workLog.date,
         workLog.worker,
         workLog.workerType,
         workLog.startTime,
@@ -2821,8 +2818,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                         </td>
                         <td className="order-center">{getOrderYear(order)}</td>
                         <td className="order-center">{order.orderNo}</td>
-                        <td className="order-center">{order.orderDate}</td>
-                        <td className="order-center">
+                        <td className="order-center date-cell">{order.orderDate}</td>
+                        <td className="order-center date-cell">
                           {order.expectedCompletionDate}
                         </td>
                         <td className="order-center">
@@ -3172,7 +3169,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                       <tbody>
                         {filteredWorkLogs.map((workLog) => (
                           <tr key={workLog.id}>
-                            <td>{workLog.date}</td>
+                            <td className="date-cell">{workLog.date}</td>
                             <td>{workLog.worker}</td>
                             <td>{workLog.workerType}</td>
                             <td>{workLog.startTime}</td>
@@ -3221,7 +3218,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                       <tbody>
                         {filteredExpenses.map((expense) => (
                           <tr key={expense.id}>
-                            <td>{formatTableDate(expense.date)}</td>
+                            <td className="date-cell">{expense.date}</td>
                             <td>{expense.vendor}</td>
                             <td className="expense-content">{expense.memo || '-'}</td>
                             <td className="numeric-cell">
@@ -3288,7 +3285,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                       <tbody>
                         {filteredPurchaseOrders.map((purchaseOrder) => (
                           <tr key={purchaseOrder.id}>
-                            <td>{purchaseOrder.orderDate}</td>
+                            <td className="date-cell">{purchaseOrder.orderDate}</td>
                             <td>{purchaseOrder.vendor}</td>
                             <td>{purchaseOrder.item}</td>
                             <td>{purchaseOrder.quantity}</td>
@@ -3494,7 +3491,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                             onChange={() => toggleSelectedExpense(expense.id)}
                           />
                         </td>
-                        <td className="expense-center">{formatTableDate(expense.date)}</td>
+                        <td className="expense-center date-cell">{expense.date}</td>
                         <td className="expense-center">{expense.vendor}</td>
                         <td className="expense-content">{expense.memo || '-'}</td>
                         <td className="numeric-cell">
@@ -4249,7 +4246,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   <tbody>
                     {filteredWorkLogs.map((workLog) => (
                       <tr key={workLog.id}>
-                        <td>{formatTableDate(workLog.date)}</td>
+                        <td className="date-cell">{workLog.date}</td>
                         <td>{workLog.worker}</td>
                         <td>{workLog.workerType}</td>
                         <td>{workLog.startTime}</td>
@@ -4352,7 +4349,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
 
                       return (
                         <tr key={workLog.id}>
-                          <td>{formatTableDate(workLog.date)}</td>
+                          <td className="date-cell">{workLog.date}</td>
                           <td>{workLog.worker}</td>
                           <td>{workLog.workerType}</td>
                           <td>{workLog.startTime}</td>

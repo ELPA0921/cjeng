@@ -601,7 +601,7 @@ table {
 }
 
 .expenses-col-date {
-  width: 96px;
+  width: 120px;
 }
 
 .expenses-col-vendor {
@@ -801,6 +801,14 @@ td {
 
 .numeric-cell {
   text-align: right;
+}
+
+td.date-cell {
+  min-width: 120px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  font-variant-numeric: tabular-nums;
 }
 
 .expense-center,
