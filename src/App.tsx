@@ -944,6 +944,9 @@ function App() {
     loadStoredData('cost-app-orders', defaultOrders),
   )
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
+  const [isBulkOrderStatusOpen, setIsBulkOrderStatusOpen] = useState(false)
+  const [bulkOrderStatus, setBulkOrderStatus] = useState<'' | OrderStatus>('')
+  const [orderStatusMessage, setOrderStatusMessage] = useState('')
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
   const [orderSort, setOrderSort] = useState<{
     key: OrderSortKey
@@ -2117,6 +2120,20 @@ function App() {
     setIsOrderModalOpen(true)
   }
 
+  function applyBulkOrderStatus(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!isOrderStatus(bulkOrderStatus) || selectedOrderIds.length === 0) return
+
+    const selectedIds = new Set(selectedOrderIds)
+    const count = orders.filter(order => selectedIds.has(order.id)).length
+    setOrders(current => current.map(order =>
+      selectedIds.has(order.id) ? { ...order, status: bulkOrderStatus } : order,
+    ))
+    setOrderStatusMessage(`수주 ${count}건 상태 변경 완료: ${bulkOrderStatus}`)
+    setIsBulkOrderStatusOpen(false)
+    setSelectedOrderIds([])
+  }
+
   function deleteSelectedOrders() {
     if (selectedOrderIds.length === 0) return
 
@@ -3078,6 +3095,17 @@ function App() {
                     className="ghost-button"
                     disabled={selectedOrderCount === 0}
                     type="button"
+                    onClick={() => {
+                      setBulkOrderStatus('')
+                      setIsBulkOrderStatusOpen(true)
+                    }}
+                  >
+                    상태 일괄 변경
+                  </button>
+                  <button
+                    className="ghost-button"
+                    disabled={selectedOrderCount === 0}
+                    type="button"
                     onClick={deleteSelectedOrders}
                   >
                     삭제
@@ -3085,6 +3113,7 @@ function App() {
                   {renderOutputButtons(ordersExportTable, importOrdersFromCsv)}
                 </div>
               </div>
+              <p className="order-status-message" role="status">{orderStatusMessage}</p>
               <div className="table-wrap">
                 <table className="orders-table">
                   <colgroup>
@@ -3169,6 +3198,50 @@ function App() {
               </div>
             </div>
           </section>
+        )}
+
+        {isBulkOrderStatusOpen && (
+          <div className="modal-backdrop" role="presentation">
+            <form
+              className="modal-panel form-panel bulk-order-status-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="bulk-order-status-title"
+              onSubmit={applyBulkOrderStatus}
+            >
+              <div className="modal-heading">
+                <div>
+                  <h3 id="bulk-order-status-title">상태 일괄 변경</h3>
+                  <span>선택한 수주 {selectedOrderCount}건에 같은 상태를 적용합니다.</span>
+                </div>
+                <button className="ghost-button" type="button" onClick={() => setIsBulkOrderStatusOpen(false)}>닫기</button>
+              </div>
+              <p className="bulk-order-status-targets">
+                {orders.filter(order => selectedOrderIds.includes(order.id)).map(order => order.orderNo).join(', ')}
+              </p>
+              <label>
+                변경할 상태
+                <select
+                  autoFocus
+                  required
+                  value={bulkOrderStatus}
+                  onChange={event => {
+                    const value = event.target.value
+                    if (value === '' || isOrderStatus(value)) setBulkOrderStatus(value)
+                  }}
+                >
+                  <option value="" disabled>상태를 선택하세요</option>
+                  {orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}
+                </select>
+              </label>
+              <div className="modal-actions">
+                <button className="ghost-button" type="button" onClick={() => setIsBulkOrderStatusOpen(false)}>취소</button>
+                <button className="primary-button" type="submit" disabled={!bulkOrderStatus || selectedOrderCount === 0}>
+                  {selectedOrderCount}건 상태 변경
+                </button>
+              </div>
+            </form>
+          </div>
         )}
 
         {isOrderModalOpen && (

@@ -1149,6 +1149,25 @@ tr.selected-row td {
   width: min(760px, 100%);
 }
 
+.bulk-order-status-modal {
+  max-width: 560px;
+}
+
+.bulk-order-status-targets {
+  margin: 0;
+  max-height: 100px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.order-status-message {
+  margin: 0 0 12px;
+}
+
+.order-status-message:empty {
+  display: none;
+}
+
 .modal-backdrop {
   position: fixed;
   z-index: 10;
