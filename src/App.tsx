@@ -2157,7 +2157,6 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
         <button className="brand-home" type="button" aria-label="홈으로 이동" onClick={() => navigateTo('home')}>
           <img src="/changjo-logo.png" alt="주식회사 창조이엔지" width="994" height="284" />
         </button>
-        <div className="workspace-label"><span className="workspace-avatar">CJ</span><span>공사 관리 워크스페이스<small>CHANGJO ENGINEERING</small></span></div>
         <p className="nav-caption">워크스페이스</p>
         <nav className="nav-tabs" aria-label="주요 메뉴">
           {([
@@ -2183,7 +2182,6 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
             </Fragment>
           ))}
         </nav>
-        <div className="sidebar-note"><span className="note-mark">✳</span><strong>현장의 모든 흐름을 한곳에.</strong><p>수주부터 작업일보까지,<br />더 가볍고 명확하게 관리하세요.</p><button type="button" onClick={() => navigateTo('worklogs')}>작업일보 열기 <Icon name="arrow" /></button></div>
         <div className="sidebar-footer"><span className="workspace-avatar">창</span><span>주식회사 창조이엔지<small>공사 관리 시스템</small></span></div>
       </aside>
 
