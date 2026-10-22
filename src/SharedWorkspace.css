@@ -1,0 +1,11 @@
+.workspace-login { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f3f6f3; color: #1e3027; }
+.workspace-login-card { width: min(480px, 100%); padding: 36px; border: 1px solid #d8e2db; border-radius: 20px; background: #fff; box-shadow: 0 16px 48px #1e302711; }
+.workspace-login-brand { color: #1d7656; font-size: 12px; letter-spacing: 1px; font-weight: 700; }
+.workspace-login h1 { font-size: 26px; margin: 18px 0 12px; }
+.workspace-login p { line-height: 1.7; margin: 0 0 24px; }
+.shared-workspace-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; border-bottom: 1px solid #d8e2db; background: #fff; color: #1e3027; }
+.shared-workspace-bar strong, .shared-workspace-bar span, .shared-workspace-bar small { display: block; margin: 2px 0; }
+.shared-workspace-bar span, .shared-workspace-bar small { font-size: 12px; }
+.shared-workspace-buttons { display: flex; gap: 8px; }
+.shared-workspace-message { margin: 0; padding: 10px 24px; background: #e6f2eb; color: #1e3027; }
+.workspace-saving { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; background: #ffffffb3; color: #1d7656; font-size: 20px; font-weight: 700; }

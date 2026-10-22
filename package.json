@@ -4,13 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "test": "node --test src/deliveryData.test.mjs src/orderStatus.test.mjs",
+    "test": "node --test src/deliveryData.test.mjs src/orderStatus.test.mjs server/*.test.mjs",
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && tsc --project tsconfig.api.json && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:api": "tsc --project tsconfig.api.json",
+    "db:init": "node scripts/init-workspace.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "jose": "^6.2.13",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

@@ -2,27 +2,13 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import './App.css'
 import './design.css'
 import DeliveryPerformance from './DeliveryPerformance'
+import type { Order, SharedOrderStore } from './orderTypes'
 import { defaultOrderStatus, getOrderStatus, importedOrderStatus, isOrderStatus, orderStatuses, type OrderStatus } from './orderStatus'
 import {
   orderVendorContacts,
   purchaseVendorContacts,
   type VendorContact,
 } from './vendorData'
-
-type Order = {
-  id: string
-  year?: string
-  orderNo: string
-  orderDate: string
-  expectedCompletionDate: string
-  manager: string
-  client1: string
-  client2: string
-  region: string
-  projectName: string
-  note?: string
-  status?: OrderStatus
-}
 
 type Expense = {
   id: string
@@ -935,14 +921,23 @@ function Icon({ name }: { name: IconName }) {
   return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>
 }
 
-function App() {
+function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
   const [view, setView] = useState<View>('home')
   const [viewHistory, setViewHistory] = useState<View[]>([])
   const [viewFuture, setViewFuture] = useState<View[]>([])
   const [orderYear, setOrderYear] = useState(currentYear)
-  const [orders, setOrders] = useState(() =>
+  const [localOrders, setLocalOrders] = useState(() =>
     loadStoredData('cost-app-orders', defaultOrders),
   )
+  const orders = orderStore?.orders ?? localOrders
+  const [orderEditRevision, setOrderEditRevision] = useState<number | undefined>()
+  const [bulkOrderRevision, setBulkOrderRevision] = useState<number | undefined>()
+  async function setOrders(update: (orders: Order[]) => Order[], revision = orderStore?.revision) {
+    const next = update(orders)
+    if (orderStore) return orderStore.save(next, revision ?? orderStore.revision)
+    setLocalOrders(next)
+    return true
+  }
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([])
   const [isBulkOrderStatusOpen, setIsBulkOrderStatusOpen] = useState(false)
   const [bulkOrderStatus, setBulkOrderStatus] = useState<'' | OrderStatus>('')
@@ -1067,8 +1062,8 @@ function App() {
   }, [expenses])
 
   useEffect(() => {
-    localStorage.setItem('cost-app-orders', JSON.stringify(orders))
-  }, [orders])
+    if (!orderStore) localStorage.setItem('cost-app-orders', JSON.stringify(localOrders))
+  }, [localOrders, orderStore])
 
   useEffect(() => {
     localStorage.setItem('cost-app-worklogs-v2', JSON.stringify(workLogs))
@@ -1730,7 +1725,7 @@ function App() {
     )
   }
 
-  function importOrdersFromCsv(records: CsvRecord[]) {
+  async function importOrdersFromCsv(records: CsvRecord[]) {
     const invalidStatusIndex = records.findIndex(record => {
       const status = getCsvValue(record, ['상태']).trim()
       return status !== '' && !isOrderStatus(status)
@@ -1749,7 +1744,9 @@ function App() {
         const existing = orders.find(
           (order) => order.orderNo === orderNo && getOrderYear(order) === year,
         )
-        const orderDate = parseCsvDate(getCsvValue(record, ['수주일자']))
+        const rawOrderDate = getCsvValue(record, ['수주일자']).trim()
+        const rawCompletionDate = getCsvValue(record, ['준공예정일']).trim()
+        const orderDate = rawOrderDate ? parseCsvDate(rawOrderDate) : ''
 
         ordersToImport.push({
           id: existing?.id ?? `o-${orderNo}-${crypto.randomUUID()}`,
@@ -1757,9 +1754,7 @@ function App() {
           orderNo,
           orderDate,
           status: importedOrderStatus(record['상태'], orderDate, today, existing),
-          expectedCompletionDate: parseCsvDate(
-            getCsvValue(record, ['준공예정일']),
-          ),
+          expectedCompletionDate: rawCompletionDate ? parseCsvDate(rawCompletionDate) : '',
           manager: getCsvValue(record, ['담당자']),
           client1: getCsvValue(record, ['수주처', '수주처1']),
           client2: record['수주처2'] === undefined
@@ -1777,7 +1772,7 @@ function App() {
 
     if (importedOrders.length === 0) return
 
-    setOrders((current) => {
+    const saved = await setOrders((current) => {
       const withoutDuplicates = current.filter(
         (order) =>
           !importedOrders.some(
@@ -1791,6 +1786,7 @@ function App() {
         a.orderNo.localeCompare(b.orderNo),
       )
     })
+    if (!saved) return
     setOrderYear(getOrderYear(importedOrders[0]))
     selectProject(importedOrders[0].id)
   }
@@ -2073,6 +2069,7 @@ function App() {
   }
 
   function openNewOrderModal() {
+    setOrderEditRevision(orderStore?.revision)
     setEditingOrderId(null)
     setOrderForm({
       year: orderYear === '기타' ? new Date().getFullYear().toString() : orderYear,
@@ -2102,6 +2099,7 @@ function App() {
     const order = orders.find((item) => item.id === selectedOrderIds[0])
 
     if (!order || selectedOrderIds.length !== 1) return
+    setOrderEditRevision(orderStore?.revision)
 
     setEditingOrderId(order.id)
     setOrderForm({
@@ -2120,21 +2118,22 @@ function App() {
     setIsOrderModalOpen(true)
   }
 
-  function applyBulkOrderStatus(event: FormEvent<HTMLFormElement>) {
+  async function applyBulkOrderStatus(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!isOrderStatus(bulkOrderStatus) || selectedOrderIds.length === 0) return
 
     const selectedIds = new Set(selectedOrderIds)
     const count = orders.filter(order => selectedIds.has(order.id)).length
-    setOrders(current => current.map(order =>
+    const saved = await setOrders(current => current.map(order =>
       selectedIds.has(order.id) ? { ...order, status: bulkOrderStatus } : order,
-    ))
+    ), bulkOrderRevision)
+    if (!saved) return
     setOrderStatusMessage(`수주 ${count}건 상태 변경 완료: ${bulkOrderStatus}`)
     setIsBulkOrderStatusOpen(false)
     setSelectedOrderIds([])
   }
 
-  function deleteSelectedOrders() {
+  async function deleteSelectedOrders() {
     if (selectedOrderIds.length === 0) return
 
     const canDelete = window.confirm(
@@ -2142,23 +2141,24 @@ function App() {
     )
     if (!canDelete) return
 
-    setOrders((current) => {
+    const saved = await setOrders((current) => {
       const next = current.filter((order) => !selectedOrderIds.includes(order.id))
       if (!next.some((order) => order.id === selectedProjectId)) {
         setSelectedProjectId(next[0]?.id ?? defaultProjectId)
       }
       return next
     })
+    if (!saved) return
     setSelectedOrderIds([])
   }
 
-  function addOrder(event: FormEvent<HTMLFormElement>) {
+  async function addOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     if (!orderForm.orderNo.trim() || !orderForm.projectName.trim()) return
 
     if (editingOrderId) {
-      setOrders((current) =>
+      const saved = await setOrders((current) =>
         current
           .map((order) =>
             order.id === editingOrderId
@@ -2178,8 +2178,9 @@ function App() {
                 }
               : order,
           )
-          .sort((a, b) => a.orderNo.localeCompare(b.orderNo)),
+          .sort((a, b) => a.orderNo.localeCompare(b.orderNo)), orderEditRevision,
       )
+      if (!saved) return
       setOrderYear(orderForm.year)
       setSelectedOrderIds([])
       setEditingOrderId(null)
@@ -2202,9 +2203,11 @@ function App() {
       status: orderForm.status || defaultOrderStatus(orderForm.orderDate, today),
     }
 
-    setOrders((current) =>
+    const saved = await setOrders((current) =>
       [...current, newOrder].sort((a, b) => a.orderNo.localeCompare(b.orderNo)),
+      orderEditRevision,
     )
+    if (!saved) return
     setOrderYear(orderForm.year)
     setSelectedProjectId(newOrder.id)
     setExpenseForm((current) => ({ ...current, projectId: newOrder.id }))
@@ -3096,6 +3099,7 @@ function App() {
                     disabled={selectedOrderCount === 0}
                     type="button"
                     onClick={() => {
+                      setBulkOrderRevision(orderStore?.revision)
                       setBulkOrderStatus('')
                       setIsBulkOrderStatusOpen(true)
                     }}
@@ -3113,6 +3117,16 @@ function App() {
                   {renderOutputButtons(ordersExportTable, importOrdersFromCsv)}
                 </div>
               </div>
+              {orderStore && orders.length === 0 && localOrders.length > 0 && (
+                <div className="shared-order-migration">
+                  <p>공유 수주대장이 비어 있습니다. 현재 브라우저에 저장된 수주 {localOrders.length}건을 가져오면 직원들이 함께 볼 수 있습니다.</p>
+                  <button className="ghost-button" type="button" onClick={async () => {
+                    if (!window.confirm(`이 브라우저의 수주 ${localOrders.length}건을 공용 수주대장으로 가져올까요? 수주번호와 공사명을 먼저 확인해 주세요.`)) return
+                    const saved = await setOrders(() => localOrders)
+                    if (saved) setOrderStatusMessage(`${localOrders.length}건을 공용 수주대장으로 가져왔습니다.`)
+                  }}>이 브라우저의 수주 {localOrders.length}건 가져오기</button>
+                </div>
+              )}
               <p className="order-status-message" role="status">{orderStatusMessage}</p>
               <div className="table-wrap">
                 <table className="orders-table">
