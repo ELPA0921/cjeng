@@ -619,7 +619,9 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     key: OrderSortKey
     direction: SortDirection
   }>({ key: 'orderNo', direction: 'asc' })
-  const [selectedProjectId, setSelectedProjectId] = useState(orderStore?.orders[0]?.id ?? defaultProjectId)
+  const [selectedProjectId, setSelectedProjectId] = useState(
+    orderStore?.orders.find(order=>getOrderYear(order)===currentYear)?.id ?? orderStore?.orders[0]?.id ?? defaultProjectId,
+  )
   const [projectDetailTab, setProjectDetailTab] =
     useState<ProjectDetailTab>('worklogs')
   const [contactTab, setContactTab] = useState<ContactTab>('purchase')
