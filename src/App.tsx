@@ -5,6 +5,7 @@ import './App.css'
 import './design.css'
 import { getWorkCategory, workCategories, workProjectLabel, type WorkCategory } from './workLogCategories'
 import DeliveryPerformance from './DeliveryPerformance'
+import CorporateCards from './CorporateCards'
 import type { Order, SharedOrderStore } from './orderTypes'
 import type { Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
 import { defaultOrders, defaultExpenses, defaultWorkLogs, defaultPurchaseOrders } from './sampleData'
@@ -2294,16 +2295,17 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           </div>
         </header>
 
-        {(view === 'taxInvoices' || view === 'corporateCards') && (
+        {view === 'corporateCards' && <CorporateCards />}
+        {view === 'taxInvoices' && (
           <section className="content-grid single">
             <div className="panel full expense-source-panel">
               <div className="panel-heading">
-                <h3>{view === 'corporateCards' ? '법인카드 사용내역' : '전자세금계산서 내역'}</h3>
+                <h3>전자세금계산서 내역</h3>
                 <span className="expense-source-status">연동 준비 중</span>
               </div>
               <div className="expense-source-empty">
-                <strong>{view === 'corporateCards' ? '바로빌 법인카드 내역을 이곳에서 확인하세요.' : '전자세금계산서 내역을 이곳에서 확인하세요.'}</strong>
-                <p>{view === 'corporateCards' ? '바로빌 인증 설정 후 연결된 법인카드의 사용내역을 조회할 수 있습니다.' : '조회 연동을 준비하고 있습니다.'}</p>
+                <strong>전자세금계산서 내역을 이곳에서 확인하세요.</strong>
+                <p>조회 연동을 준비하고 있습니다.</p>
               </div>
             </div>
           </section>
