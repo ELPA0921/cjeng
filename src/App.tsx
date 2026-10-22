@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react'
 import { parseNavigationHash, type NavigationRoute } from './navigation'
 import { useBrowserNavigation } from './useBrowserNavigation'
 import './App.css'
@@ -2164,11 +2164,23 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
             ['home', '홈'], ['orders', '수주대장'], ['dashboard', '공사현황'],
             ['expenses', '지출내역'], ['worklogs', '작업일보'], ['deliveries', '납품실적'], ['contacts', '거래처내역'],
           ] as const).map(([target, label]) => (
-            <button key={target} className={view === target || (target === 'worklogs' && view === 'worklogList') || (target === 'expenses' && expenseMenus.some(([screen]) => screen === view)) ? 'active' : ''}
+            <Fragment key={target}>
+            <button className={view === target || (target === 'worklogs' && view === 'worklogList') || (target === 'expenses' && expenseMenus.some(([screen]) => screen === view)) ? 'active' : ''}
               aria-current={view === target || (target === 'worklogs' && view === 'worklogList') || (target === 'expenses' && expenseMenus.some(([screen]) => screen === view)) ? 'page' : undefined}
               type="button" onClick={() => navigateTo(target)}>
               <Icon name={target} /><span>{label}</span>{target === 'orders' && <small>{orders.length}</small>}
             </button>
+            {target === 'expenses' && expenseMenus.some(([screen]) => screen === view) && (
+              <nav className="expense-subnav" aria-label="지출내역 하위 메뉴">
+                {expenseMenus.map(([screen, title]) => (
+                  <button key={screen} type="button" className={view === screen ? 'active' : ''}
+                    aria-current={view === screen ? 'page' : undefined} onClick={() => navigateTo(screen)}>
+                    {title}
+                  </button>
+                ))}
+              </nav>
+            )}
+            </Fragment>
           ))}
         </nav>
         <div className="sidebar-note"><span className="note-mark">✳</span><strong>현장의 모든 흐름을 한곳에.</strong><p>수주부터 작업일보까지,<br />더 가볍고 명확하게 관리하세요.</p><button type="button" onClick={() => navigateTo('worklogs')}>작업일보 열기 <Icon name="arrow" /></button></div>
@@ -2284,16 +2296,6 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           </div>
         </header>
 
-        {expenseMenus.some(([screen]) => screen === view) && (
-          <nav className="expense-subnav" aria-label="지출내역 하위 메뉴">
-            {expenseMenus.map(([screen, label]) => (
-              <button key={screen} type="button" className={view === screen ? 'active' : ''}
-                aria-current={view === screen ? 'page' : undefined} onClick={() => navigateTo(screen)}>
-                {label}
-              </button>
-            ))}
-          </nav>
-        )}
         {(view === 'taxInvoices' || view === 'corporateCards') && (
           <section className="content-grid single">
             <div className="panel full expense-source-panel">
