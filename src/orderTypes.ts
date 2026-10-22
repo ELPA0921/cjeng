@@ -17,6 +17,6 @@ export type Order = {
 
 export type SharedOrderStore = {
   orders: Order[]
-  revision: number
-  save: (orders: Order[], revision: number) => Promise<boolean>
+  revision: number | string
+  save: (orders: Order[], revision: number | string) => Promise<boolean>
 }

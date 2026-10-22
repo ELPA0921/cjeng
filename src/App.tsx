@@ -3,6 +3,7 @@ import './App.css'
 import './design.css'
 import DeliveryPerformance from './DeliveryPerformance'
 import type { Order, SharedOrderStore } from './orderTypes'
+import { remapProjectReferences, sharedProjectIdMap } from './orderMigration'
 import { defaultOrderStatus, getOrderStatus, importedOrderStatus, isOrderStatus, orderStatuses, type OrderStatus } from './orderStatus'
 import {
   orderVendorContacts,
@@ -930,8 +931,9 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     loadStoredData('cost-app-orders', defaultOrders),
   )
   const orders = orderStore?.orders ?? localOrders
-  const [orderEditRevision, setOrderEditRevision] = useState<number | undefined>()
-  const [bulkOrderRevision, setBulkOrderRevision] = useState<number | undefined>()
+  const migratedProjectIds = sharedProjectIdMap(localOrders, orderStore?.orders ?? localOrders)
+  const [orderEditRevision, setOrderEditRevision] = useState<number | string | undefined>()
+  const [bulkOrderRevision, setBulkOrderRevision] = useState<number | string | undefined>()
   async function setOrders(update: (orders: Order[]) => Order[], revision = orderStore?.revision) {
     const next = update(orders)
     if (orderStore) return orderStore.save(next, revision ?? orderStore.revision)
@@ -947,7 +949,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     key: OrderSortKey
     direction: SortDirection
   }>({ key: 'orderNo', direction: 'asc' })
-  const [selectedProjectId, setSelectedProjectId] = useState(defaultProjectId)
+  const [selectedProjectId, setSelectedProjectId] = useState(orderStore?.orders[0]?.id ?? defaultProjectId)
   const [projectDetailTab, setProjectDetailTab] =
     useState<ProjectDetailTab>('worklogs')
   const [contactTab, setContactTab] = useState<ContactTab>('purchase')
@@ -987,7 +989,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false)
   const [isWorkLogModalOpen, setIsWorkLogModalOpen] = useState(false)
   const [expenses, setExpenses] = useState(() =>
-    loadStoredData('cost-app-expenses', defaultExpenses),
+    remapProjectReferences(loadStoredData('cost-app-expenses', defaultExpenses), migratedProjectIds),
   )
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([])
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
@@ -1014,10 +1016,10 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     direction: SortDirection
   }>({ key: 'orderDate', direction: 'desc' })
   const [workLogs, setWorkLogs] = useState(() =>
-    loadStoredData('cost-app-worklogs-v2', defaultWorkLogs),
+    remapProjectReferences(loadStoredData('cost-app-worklogs-v2', defaultWorkLogs), migratedProjectIds),
   )
   const [expenseForm, setExpenseForm] = useState({
-    projectId: defaultProjectId,
+    projectId: selectedProjectId,
     date: today,
     kind: '법인카드',
     customKind: '',
@@ -1032,7 +1034,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     manualAmount: false,
   })
   const [workLogForm, setWorkLogForm] = useState({
-    projectId: defaultProjectId,
+    projectId: selectedProjectId,
     date: today,
     workerCount: '1',
     startTime: '07:30',

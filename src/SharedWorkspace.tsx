@@ -5,7 +5,7 @@ import './SharedWorkspace.css'
 
 type User = { email: string; name: string; sub: string }
 type Session = { user: User | null; clientId?: string; nonce?: string }
-type Snapshot = { orders: Order[]; revision: number }
+type Snapshot = { orders: Order[]; revision: number | string }
 type GoogleIdentity = { initialize: (config: { client_id: string; nonce: string; callback: (response: { credential: string }) => void }) => void; renderButton: (element: HTMLElement, config: { theme: string; size: string; text: string; locale: string }) => void; disableAutoSelect: () => void }
 declare global { interface Window { google?: { accounts: { id: GoogleIdentity } } } }
 
@@ -76,7 +76,7 @@ function SignedInWorkspace({ user, onSignOut }: { user: User; onSignOut: () => P
     window.addEventListener('focus', onFocus)
     return () => { active = false; controller.abort(); window.clearInterval(interval); window.removeEventListener('focus', onFocus) }
   }, [refresh])
-  async function save(orders: Order[], revision: number) {
+  async function save(orders: Order[], revision: number | string) {
     if (busy.current) { setMessage('다른 요청을 처리 중입니다. 잠시 후 다시 저장해 주세요.'); return false }
     busy.current = true
     setSaving(true)

@@ -15,7 +15,7 @@ return async function handler(req: Request, res: ServerResponse) {
     if (req.method === 'GET') { res.end(JSON.stringify(await deps.readOrders())); return }
     if (req.method !== 'PUT') { res.statusCode = 405; res.setHeader('Allow', 'GET, PUT'); res.end('{}'); return }
     if (!deps.sameOrigin(req, deps.settings().origin)) { res.statusCode = 403; res.end(JSON.stringify({ error: '요청한 접속 주소를 확인하세요.' })); return }
-    let orders: Record<string, string>[], revision: number
+    let orders: Record<string, string>[], revision: number | string
     try {
       if (Number(req.headers['content-length']) > 2000000) throw new Error('수주 파일이 너무 큽니다.')
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body

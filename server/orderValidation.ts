@@ -38,7 +38,8 @@ export function validateOrders(value: unknown): Record<string, string>[] {
   })
 }
 
-export function validateRevision(value: unknown): number {
+export function validateRevision(value: unknown): number | string {
+  if (typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)) return value
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) throw new Error('수주 목록을 다시 불러온 후 저장하세요.')
   return value
 }

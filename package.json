@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "test": "node --test src/deliveryData.test.mjs src/orderStatus.test.mjs server/*.test.mjs",
+    "test": "node --test src/*.test.mjs server/*.test.mjs",
     "dev": "vite",
     "build": "tsc -b && tsc --project tsconfig.api.json && vite build",
     "lint": "eslint .",

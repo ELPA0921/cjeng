@@ -11,13 +11,19 @@ export function settings() {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim()
   const secret = process.env.WORKSPACE_SESSION_SECRET
   const databaseUrl = process.env.DATABASE_URL
+  const storage = process.env.WORKSPACE_STORAGE || 'postgres'
+  const sheetsEndpoint = process.env.WORKSPACE_SHEETS_ENDPOINT
+  const sheetsSecret = process.env.WORKSPACE_SHEETS_SECRET
   const origin = process.env.WORKSPACE_ORIGIN
   const allowed = new Set((process.env.WORKSPACE_ALLOWED_EMAILS ?? '').split(',').map(email => email.trim().toLowerCase()).filter(Boolean))
-  if (!clientId || !secret || secret.length < 32 || !databaseUrl || !origin || allowed.size === 0) {
+  const storageReady = storage === 'sheets'
+    ? sheetsEndpoint && /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(sheetsEndpoint) && sheetsSecret && sheetsSecret.length >= 32
+    : storage === 'postgres' && databaseUrl
+  if (!clientId || !secret || secret.length < 32 || !storageReady || !origin || allowed.size === 0) {
     throw new Error('공유 수주대장 연결 설정이 필요합니다.')
   }
   if (new URL(origin).origin !== origin || !origin.startsWith('https://')) throw new Error('접속 주소 설정을 확인하세요.')
-  return { clientId, secret: new TextEncoder().encode(secret), databaseUrl, origin, allowed }
+  return { clientId, secret: new TextEncoder().encode(secret), databaseUrl, origin, allowed, storage, sheetsEndpoint, sheetsSecret }
 }
 
 export function cookie(req: IncomingMessage, name: string) {
