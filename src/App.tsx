@@ -3203,7 +3203,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     <span>카드사용 및 세금계산서</span>
                   </div>
                   <div className="table-wrap">
-                    <table>
+                    <table className="expense-data-table">
                       <thead>
                         <tr>
                           <th>{renderExpenseSortButton('date', '일자')}</th>
@@ -3449,7 +3449,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                 </div>
               </div>
               <div className="table-wrap">
-                <table className="expenses-table">
+                <table className="expenses-table expense-data-table">
                   <colgroup>
                     <col className="expenses-col-check" />
                     <col className="expenses-col-date" />

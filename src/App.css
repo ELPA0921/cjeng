@@ -599,15 +599,15 @@ table {
   width: 138px;
 }
 
-.expenses-table td {
+.expense-data-table td {
   text-align: center;
 }
 
-.expenses-table .expense-content {
+.expense-data-table .expense-content {
   text-align: left;
 }
 
-.expenses-table .numeric-cell {
+.expense-data-table .numeric-cell {
   text-align: right;
 }
 
