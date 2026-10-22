@@ -1,13 +1,15 @@
 import { createHmac, randomUUID } from 'node:crypto'
 import { settings } from './security.ts'
 import { validateOrders, validateRevision } from './orderValidation.ts'
+import { validateWorkspace } from './workspaceValidation.ts'
 
-export function signedEnvelope(action: 'read' | 'write', data: unknown, secret: string) {
+type SheetsAction = 'read' | 'write' | 'workspace-read' | 'workspace-write'
+export function signedEnvelope(action: SheetsAction, data: unknown, secret: string) {
   const payload = JSON.stringify({ action, data, issuedAt: Date.now(), nonce: randomUUID() })
   return { payload, signature: createHmac('sha256', secret).update(payload).digest('hex') }
 }
 
-export async function sheetsRequest(action: 'read' | 'write', data?: unknown) {
+async function request(action: SheetsAction, data?: unknown) {
   const config = settings()
   if (!config.sheetsEndpoint || !config.sheetsSecret) throw new Error('구글 시트 연결 설정이 필요합니다.')
   const response = await fetch(config.sheetsEndpoint, {
@@ -19,5 +21,17 @@ export async function sheetsRequest(action: 'read' | 'write', data?: unknown) {
   const body = await response.json()
   if (body.conflict === true) return null
   if (body.ok !== true || !body.data) throw new Error('구글 시트 요청에 실패했습니다.')
-  return { orders: validateOrders(body.data.orders), revision: validateRevision(body.data.revision) }
+  return body.data
+}
+
+export async function sheetsRequest(action: 'read' | 'write', data?: unknown) {
+  const body = await request(action,data)
+  return body ? { orders: validateOrders(body.orders), revision: validateRevision(body.revision) } : null
+}
+export async function workspaceSheetsRequest(action: 'workspace-read' | 'workspace-write', data?: unknown) {
+  const body=await request(action,data)
+  if(!body)return null
+  const revision=validateRevision(body.revision)
+  if(typeof revision!=='string' || typeof body.initialized!=='boolean')throw new Error('공유 자료 응답을 확인하세요.')
+  return {data:validateWorkspace(body.data),revision,initialized:body.initialized}
 }

@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import './App.css'
 import './design.css'
 import DeliveryPerformance from './DeliveryPerformance'
 import type { Order, SharedOrderStore } from './orderTypes'
+import type { Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
+import { defaultOrders, defaultExpenses, defaultWorkLogs, defaultPurchaseOrders } from './sampleData'
 import { remapProjectReferences, sharedProjectIdMap } from './orderMigration'
 import { defaultOrderStatus, getOrderStatus, importedOrderStatus, isOrderStatus, orderStatuses, type OrderStatus } from './orderStatus'
 import {
@@ -11,49 +13,9 @@ import {
   type VendorContact,
 } from './vendorData'
 
-type Expense = {
-  id: string
-  projectId: string
-  date: string
-  kind: string
-  vendor: string
-  category?: string
-  memo: string
-  cardNumber?: string
-  supplyAmount?: number
-  vatAmount?: number
-  amount: number
-}
-
-type WorkLog = {
-  id: string
-  projectId: string
-  date: string
-  worker: string
-  workerType: '직원' | '인력'
-  startTime: string
-  endTime: string
-  overtimeHours: number
-  location: string
-  task: string
-  note: string
-  hours: number
-}
-
 type WorkLogWorkerInput = {
   worker: string
   workerType: WorkLog['workerType']
-}
-
-type PurchaseOrder = {
-  id: string
-  projectId: string
-  orderDate: string
-  vendor: string
-  item: string
-  quantity: string
-  amount: number
-  status: '요청' | '발주완료' | '입고완료'
 }
 
 type ExportCell = string | number
@@ -148,298 +110,6 @@ const emptyVendorContact: VendorContact = {
   address: '',
   item: '',
 }
-
-const defaultOrders: Order[] = [
-  {
-    id: 'o-2025-001',
-    orderNo: '2025-001',
-    orderDate: '2025-01-14',
-    expectedCompletionDate: '2025-03-28',
-    manager: '김현수',
-    client1: '태광산업',
-    client2: '환경안전팀',
-    region: '경기 안산',
-    projectName: '흡착탑 교체 및 배관 보수공사',
-  },
-  {
-    id: 'o-2025-002',
-    orderNo: '2025-002',
-    orderDate: '2025-02-03',
-    expectedCompletionDate: '2025-04-15',
-    manager: '박민재',
-    client1: '동림화학',
-    client2: '공무팀',
-    region: '충남 천안',
-    projectName: '폐수처리장 약품탱크 증설공사',
-  },
-  {
-    id: 'o-2025-003',
-    orderNo: '2025-003',
-    orderDate: '2025-03-21',
-    expectedCompletionDate: '2025-05-30',
-    manager: '이준호',
-    client1: '세림금속',
-    client2: '설비보전팀',
-    region: '인천 남동',
-    projectName: '집진기 덕트라인 개선공사',
-  },
-  {
-    id: 'o-2025-004',
-    orderNo: '2025-004',
-    orderDate: '2025-06-10',
-    expectedCompletionDate: '2025-08-22',
-    manager: '최유진',
-    client1: '한빛산업',
-    client2: '생산기술팀',
-    region: '경기 화성',
-    projectName: '스크러버 순환펌프 교체공사',
-  },
-  {
-    id: 'o-2025-005',
-    orderNo: '2025-005',
-    orderDate: '2025-09-02',
-    expectedCompletionDate: '2025-11-18',
-    manager: '정도윤',
-    client1: '우진바이오',
-    client2: '시설관리팀',
-    region: '충북 청주',
-    projectName: '악취방지시설 후드 설치공사',
-  },
-  {
-    id: 'o-2026-001',
-    orderNo: '2026-001',
-    orderDate: '2026-01-09',
-    expectedCompletionDate: '2026-02-27',
-    manager: '김현수',
-    client1: '한빛산업',
-    client2: '환경안전팀',
-    region: '경기 화성',
-    projectName: '대기방지시설 개선공사',
-  },
-  {
-    id: 'o-2026-002',
-    orderNo: '2026-002',
-    orderDate: '2026-02-16',
-    expectedCompletionDate: '2026-04-24',
-    manager: '박민재',
-    client1: '동서화학',
-    client2: '공무팀',
-    region: '울산 남구',
-    projectName: '폐수처리장 배관 교체',
-  },
-  {
-    id: 'o-2026-003',
-    orderNo: '2026-003',
-    orderDate: '2026-03-05',
-    expectedCompletionDate: '2026-05-29',
-    manager: '이준호',
-    client1: '세림금속',
-    client2: '설비보전팀',
-    region: '인천 서구',
-    projectName: '집진설비 신규 설치',
-  },
-  {
-    id: 'o-2026-004',
-    orderNo: '2026-004',
-    orderDate: '2026-04-18',
-    expectedCompletionDate: '2026-07-10',
-    manager: '최유진',
-    client1: '대영제지',
-    client2: '안전환경팀',
-    region: '전북 군산',
-    projectName: 'RTO 전처리 필터박스 보강공사',
-  },
-  {
-    id: 'o-2026-005',
-    orderNo: '2026-005',
-    orderDate: '2026-05-11',
-    expectedCompletionDate: '2026-08-21',
-    manager: '정도윤',
-    client1: '우진바이오',
-    client2: '시설관리팀',
-    region: '충북 청주',
-    projectName: '폐수 유량조정조 방수 보수공사',
-  },
-]
-
-const defaultExpenses: Expense[] = [
-  {
-    id: 'e-001',
-    projectId: 'o-2026-001',
-    date: '2026-05-13',
-    kind: '카드',
-    vendor: '대성철물',
-    category: '자재비',
-    memo: '덕트 보강 자재',
-    amount: 1280000,
-  },
-  {
-    id: 'e-002',
-    projectId: 'o-2026-001',
-    date: '2026-05-17',
-    kind: '세금계산서',
-    vendor: '태영렌탈',
-    category: '장비대',
-    memo: '고소작업대 2일',
-    amount: 740000,
-  },
-  {
-    id: 'e-003',
-    projectId: 'o-2026-002',
-    date: '2026-05-18',
-    kind: '카드',
-    vendor: '우리배관',
-    category: '자재비',
-    memo: 'SUS 배관 및 밸브',
-    amount: 2165000,
-  },
-  {
-    id: 'e-004',
-    projectId: 'o-2026-003',
-    date: '2026-05-20',
-    kind: '세금계산서',
-    vendor: '세명환경기계',
-    category: '외주비',
-    memo: '집진기 본체 제작',
-    amount: 12600000,
-  },
-  {
-    id: 'e-005',
-    projectId: 'o-2025-004',
-    date: '2025-07-02',
-    kind: '카드',
-    vendor: '한성펌프',
-    category: '자재비',
-    memo: '순환펌프 부품',
-    amount: 980000,
-  },
-]
-
-const defaultWorkLogs: WorkLog[] = [
-  {
-    id: 'w-001',
-    projectId: 'o-2026-001',
-    date: '2026-05-14',
-    worker: '김현수',
-    workerType: '직원',
-    startTime: '08:00',
-    endTime: '17:00',
-    overtimeHours: 0,
-    location: '집진기실',
-    task: '기존 설비 철거 및 덕트 보강',
-    note: '안전난간 설치 후 작업',
-    hours: 8,
-  },
-  {
-    id: 'w-002',
-    projectId: 'o-2026-001',
-    date: '2026-05-15',
-    worker: '박민재',
-    workerType: '직원',
-    startTime: '08:00',
-    endTime: '16:00',
-    overtimeHours: 0,
-    location: '송풍기 기초부',
-    task: '송풍기 베이스 설치',
-    note: '',
-    hours: 7,
-  },
-  {
-    id: 'w-003',
-    projectId: 'o-2026-002',
-    date: '2026-05-19',
-    worker: '이준호',
-    workerType: '인력',
-    startTime: '08:00',
-    endTime: '17:30',
-    overtimeHours: 0.5,
-    location: '폐수처리장 1층',
-    task: '배관 절단 및 플랜지 용접',
-    note: '용접 화기감시 배치',
-    hours: 8.5,
-  },
-  {
-    id: 'w-004',
-    projectId: 'o-2026-003',
-    date: '2026-05-21',
-    worker: '최유진',
-    workerType: '직원',
-    startTime: '08:30',
-    endTime: '17:30',
-    overtimeHours: 0,
-    location: '집진설비 설치구역',
-    task: '집진기 하부 프레임 설치',
-    note: '',
-    hours: 8,
-  },
-  {
-    id: 'w-005',
-    projectId: 'o-2025-004',
-    date: '2025-07-08',
-    worker: '정도윤',
-    workerType: '인력',
-    startTime: '09:00',
-    endTime: '16:30',
-    overtimeHours: 0,
-    location: '스크러버실',
-    task: '스크러버 순환펌프 교체',
-    note: '시운전 완료',
-    hours: 6.5,
-  },
-]
-
-const purchaseOrders: PurchaseOrder[] = [
-  {
-    id: 'po-001',
-    projectId: 'o-2026-001',
-    orderDate: '2026-05-10',
-    vendor: '세명환경기계',
-    item: '덕트 보강 플랜지 및 브라켓',
-    quantity: '1식',
-    amount: 1850000,
-    status: '입고완료',
-  },
-  {
-    id: 'po-002',
-    projectId: 'o-2026-001',
-    orderDate: '2026-05-12',
-    vendor: '태영렌탈',
-    item: '고소작업대 임대',
-    quantity: '2일',
-    amount: 740000,
-    status: '발주완료',
-  },
-  {
-    id: 'po-003',
-    projectId: 'o-2026-002',
-    orderDate: '2026-05-15',
-    vendor: '우리배관',
-    item: 'SUS 배관, 밸브, 플랜지',
-    quantity: '1식',
-    amount: 2580000,
-    status: '입고완료',
-  },
-  {
-    id: 'po-004',
-    projectId: 'o-2026-003',
-    orderDate: '2026-05-18',
-    vendor: '세명환경기계',
-    item: '집진기 본체 및 하부 호퍼',
-    quantity: '1대',
-    amount: 12600000,
-    status: '발주완료',
-  },
-  {
-    id: 'po-005',
-    projectId: 'o-2026-004',
-    orderDate: '2026-05-02',
-    vendor: '대영필터',
-    item: '전처리 필터박스 제작',
-    quantity: '2대',
-    amount: 5400000,
-    status: '요청',
-  },
-]
 
 const formatDateOnly = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
@@ -922,7 +592,7 @@ function Icon({ name }: { name: IconName }) {
   return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>
 }
 
-function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
+function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; workspaceStore?: SharedWorkspaceStore } = {}) {
   const [view, setView] = useState<View>('home')
   const [viewHistory, setViewHistory] = useState<View[]>([])
   const [viewFuture, setViewFuture] = useState<View[]>([])
@@ -961,16 +631,16 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     key: VendorSortKey
     direction: SortDirection
   }>({ key: 'company', direction: 'asc' })
-  const [inactiveVendorKeys, setInactiveVendorKeys] = useState<string[]>(() =>
+  const [localInactiveVendorKeys, setLocalInactiveVendorKeys] = useState<string[]>(() =>
     loadStoredData('cost-app-inactive-vendors', []),
   )
-  const [deletedVendorKeys, setDeletedVendorKeys] = useState<string[]>(() =>
+  const [localDeletedVendorKeys, setLocalDeletedVendorKeys] = useState<string[]>(() =>
     loadStoredData('cost-app-deleted-vendors', []),
   )
-  const [vendorEdits, setVendorEdits] = useState<Record<string, VendorContact>>(
+  const [localVendorEdits, setLocalVendorEdits] = useState<Record<string, VendorContact>>(
     () => loadStoredData<Record<string, VendorContact>>('cost-app-vendor-edits', {}),
   )
-  const [customVendorContacts, setCustomVendorContacts] = useState<
+  const [localCustomVendorContacts, setLocalCustomVendorContacts] = useState<
     Record<ContactTab, VendorContact[]>
   >(() =>
     loadStoredData<Record<ContactTab, VendorContact[]>>(
@@ -988,7 +658,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false)
   const [isWorkLogModalOpen, setIsWorkLogModalOpen] = useState(false)
-  const [expenses, setExpenses] = useState(() =>
+  const [localExpenses, setLocalExpenses] = useState(() =>
     remapProjectReferences(loadStoredData('cost-app-expenses', defaultExpenses), migratedProjectIds),
   )
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([])
@@ -1015,9 +685,34 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     key: PurchaseOrderSortKey
     direction: SortDirection
   }>({ key: 'orderDate', direction: 'desc' })
-  const [workLogs, setWorkLogs] = useState(() =>
+  const [localWorkLogs, setLocalWorkLogs] = useState(() =>
     remapProjectReferences(loadStoredData('cost-app-worklogs-v2', defaultWorkLogs), migratedProjectIds),
   )
+  const inactiveVendorKeys = workspaceStore?.data.inactiveVendorKeys ?? localInactiveVendorKeys
+  const deletedVendorKeys = workspaceStore?.data.deletedVendorKeys ?? localDeletedVendorKeys
+  const vendorEdits = workspaceStore?.data.vendorEdits ?? localVendorEdits
+  const customVendorContacts = workspaceStore?.data.customVendorContacts ?? localCustomVendorContacts
+  const expenses = workspaceStore?.data.expenses ?? localExpenses
+  const workLogs = workspaceStore?.data.workLogs ?? localWorkLogs
+  const purchaseOrders = workspaceStore?.data.purchases ?? defaultPurchaseOrders
+  const [expenseEditRevision, setExpenseEditRevision] = useState<string | undefined>()
+  const [vendorEditRevision, setVendorEditRevision] = useState<string | undefined>()
+  async function updateWorkspace(patch: Partial<WorkspaceData>, revision=workspaceStore?.revision) {
+    if(workspaceStore)return workspaceStore.save(patch,revision ?? workspaceStore.revision)
+    if(patch.expenses)setLocalExpenses(patch.expenses)
+    if(patch.workLogs)setLocalWorkLogs(patch.workLogs)
+    if(patch.inactiveVendorKeys)setLocalInactiveVendorKeys(patch.inactiveVendorKeys)
+    if(patch.deletedVendorKeys)setLocalDeletedVendorKeys(patch.deletedVendorKeys)
+    if(patch.vendorEdits)setLocalVendorEdits(patch.vendorEdits)
+    if(patch.customVendorContacts)setLocalCustomVendorContacts(patch.customVendorContacts)
+    return true
+  }
+  async function setExpenses(update:(current:Expense[])=>Expense[], revision=workspaceStore?.revision) {
+    return updateWorkspace({expenses:update(expenses)},revision)
+  }
+  async function setWorkLogs(update:(current:WorkLog[])=>WorkLog[]) {
+    return updateWorkspace({workLogs:update(workLogs)})
+  }
   const [expenseForm, setExpenseForm] = useState({
     projectId: selectedProjectId,
     date: today,
@@ -1060,41 +755,41 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
   })
 
   useEffect(() => {
-    localStorage.setItem('cost-app-expenses', JSON.stringify(expenses))
-  }, [expenses])
+    if (!workspaceStore) localStorage.setItem('cost-app-expenses', JSON.stringify(expenses))
+  }, [expenses, workspaceStore])
 
   useEffect(() => {
     if (!orderStore) localStorage.setItem('cost-app-orders', JSON.stringify(localOrders))
   }, [localOrders, orderStore])
 
   useEffect(() => {
-    localStorage.setItem('cost-app-worklogs-v2', JSON.stringify(workLogs))
-  }, [workLogs])
+    if (!workspaceStore) localStorage.setItem('cost-app-worklogs-v2', JSON.stringify(workLogs))
+  }, [workLogs, workspaceStore])
 
   useEffect(() => {
-    localStorage.setItem(
+    if (!workspaceStore) localStorage.setItem(
       'cost-app-inactive-vendors',
       JSON.stringify(inactiveVendorKeys),
     )
-  }, [inactiveVendorKeys])
+  }, [inactiveVendorKeys, workspaceStore])
 
   useEffect(() => {
-    localStorage.setItem(
+    if (!workspaceStore) localStorage.setItem(
       'cost-app-deleted-vendors',
       JSON.stringify(deletedVendorKeys),
     )
-  }, [deletedVendorKeys])
+  }, [deletedVendorKeys, workspaceStore])
 
   useEffect(() => {
-    localStorage.setItem('cost-app-vendor-edits', JSON.stringify(vendorEdits))
-  }, [vendorEdits])
+    if (!workspaceStore) localStorage.setItem('cost-app-vendor-edits', JSON.stringify(vendorEdits))
+  }, [vendorEdits, workspaceStore])
 
   useEffect(() => {
-    localStorage.setItem(
+    if (!workspaceStore) localStorage.setItem(
       'cost-app-custom-vendors',
       JSON.stringify(customVendorContacts),
     )
-  }, [customVendorContacts])
+  }, [customVendorContacts, workspaceStore])
 
   const navigateTo = (nextView: View) => {
     if (nextView === view) return
@@ -1126,56 +821,22 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     })
   }
 
-  const projectSummaries = useMemo(
-    () =>
-      orders.map((order) => {
-        const year = getOrderYear(order)
-        const projectExpenses = expenses.filter(
-          (expense) => expense.projectId === order.id,
-        )
-        const projectWorkLogs = workLogs.filter(
-          (workLog) => workLog.projectId === order.id,
-        )
-        const projectPurchaseOrders = purchaseOrders.filter(
-          (purchaseOrder) => purchaseOrder.projectId === order.id,
-        )
-        const cost = projectExpenses.reduce(
-          (total, expense) => total + expense.amount,
-          0,
-        )
-        const hours = projectWorkLogs.reduce(
-          (total, workLog) => total + workLog.hours,
-          0,
-        )
-        const purchaseAmount = projectPurchaseOrders.reduce(
-          (total, purchaseOrder) => total + purchaseOrder.amount,
-          0,
-        )
+  const projectTotals = new Map<string,{cost:number;hours:number;purchaseAmount:number;records:number}>()
+  const totalFor=(id:string)=>{
+    let total=projectTotals.get(id)
+    if(!total){total={cost:0,hours:0,purchaseAmount:0,records:0};projectTotals.set(id,total)}
+    return total
+  }
+  for(const expense of expenses){const total=totalFor(expense.projectId);total.cost+=expense.amount;total.records++}
+  for(const work of workLogs){const total=totalFor(work.projectId);total.hours+=work.hours;total.records++}
+  for(const purchase of purchaseOrders){const total=totalFor(purchase.projectId);total.purchaseAmount+=purchase.amount;total.records++}
+  const projectSummaries=orders.map(order=>{
+    const total=totalFor(order.id)
+    return {...order,...total,year:getOrderYear(order),manDays:total.hours/8,status:getProjectStatus(order)}
+  })
 
-        return {
-          ...order,
-          year,
-          cost,
-          hours,
-          manDays: hours / 8,
-          purchaseAmount,
-          status: getProjectStatus(order),
-          records:
-            projectExpenses.length +
-            projectWorkLogs.length +
-            projectPurchaseOrders.length,
-        }
-      }),
-    [expenses, orders, workLogs],
-  )
-
-  const orderYears = useMemo(
-    () =>
-      [...new Set([...orders.map((order) => getOrderYear(order)), orderYear])]
-        .filter(Boolean)
-        .sort((a, b) => compareText(a, b)),
-    [orderYear, orders],
-  )
+  const orderYears = [...new Set([...orders.map((order) => getOrderYear(order)), orderYear])]
+    .filter(Boolean).sort((a, b) => compareText(a, b))
   const filteredOrders = [...orders]
     .filter((order) => getOrderYear(order) === orderYear)
     .sort((a, b) => {
@@ -1793,7 +1454,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     selectProject(importedOrders[0].id)
   }
 
-  function importExpensesFromCsv(records: CsvRecord[]) {
+  async function importExpensesFromCsv(records: CsvRecord[]) {
     const importedExpenses = records
       .filter((record) => getCsvValue(record, ['일자', '거래처', '내용']))
       .map((record) => {
@@ -1818,10 +1479,10 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
 
     if (importedExpenses.length === 0) return
 
-    setExpenses((current) => [...importedExpenses, ...current])
+    await setExpenses((current) => [...importedExpenses, ...current])
   }
 
-  function importWorkLogsFromCsv(records: CsvRecord[], projectId?: string) {
+  async function importWorkLogsFromCsv(records: CsvRecord[], projectId?: string) {
     const importedWorkLogs = records
       .map((record) => {
         const orderNo = getCsvValue(record, ['수주번호'])
@@ -1854,7 +1515,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
 
     if (importedWorkLogs.length === 0) return
 
-    setWorkLogs((current) => [...importedWorkLogs, ...current])
+    await setWorkLogs((current) => [...importedWorkLogs, ...current])
   }
 
   function renderVendorSortButton(key: VendorSortKey, label: string) {
@@ -1982,6 +1643,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
   }
 
   function openVendorEditor() {
+    setVendorEditRevision(workspaceStore?.revision)
     const vendor = vendorRows.find((row) => row.key === selectedVendorKeys[0])
 
     if (!vendor || selectedVendorKeys.length !== 1) return
@@ -1993,6 +1655,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
   }
 
   function openNewVendorModal() {
+    setVendorEditRevision(workspaceStore?.revision)
     setEditingVendorKey(null)
     setVendorForm(emptyVendorContact)
     setSelectedVendorKeys([])
@@ -2004,64 +1667,27 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     setIsVendorModalOpen(false)
   }
 
-  function saveVendor(event: FormEvent<HTMLFormElement>) {
+  async function saveVendor(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    if (!vendorForm.company.trim()) return
-
-    if (editingVendorKey) {
-      setVendorEdits((current) => ({
-        ...current,
-        [editingVendorKey]: vendorForm,
-      }))
-      closeVendorModal()
-      return
-    }
-
-    setCustomVendorContacts((current) => ({
-      ...current,
-      [contactTab]: [vendorForm, ...current[contactTab]],
-    }))
-    closeVendorModal()
+    if(!vendorForm.company.trim())return
+    const patch=editingVendorKey ? {vendorEdits:{...vendorEdits,[editingVendorKey]:vendorForm}} : {customVendorContacts:{...customVendorContacts,[contactTab]:[...customVendorContacts[contactTab],vendorForm]}}
+    if(await updateWorkspace(patch,vendorEditRevision))closeVendorModal()
   }
-
-  function deleteSelectedVendors() {
-    if (selectedVendorKeys.length === 0) return
-
-    const canDelete = window.confirm(
-      `선택한 거래처 ${selectedVendorKeys.length}건을 삭제할까요?`,
-    )
-    if (!canDelete) return
-
-    setDeletedVendorKeys((current) => [
-      ...new Set([...current, ...selectedVendorKeys]),
-    ])
-    setInactiveVendorKeys((current) =>
-      current.filter((key) => !selectedVendorKeys.includes(key)),
-    )
-    setVendorEdits((current) => {
-      const next = { ...current }
-      selectedVendorKeys.forEach((key) => {
-        delete next[key]
-      })
-      return next
+  async function deleteSelectedVendors() {
+    if(!selectedVendorKeys.length || !window.confirm(`선택한 거래처 ${selectedVendorKeys.length}건을 삭제할까요?`))return
+    const nextEdits={...vendorEdits}
+    selectedVendorKeys.forEach(key=>{delete nextEdits[key]})
+    const saved=await updateWorkspace({
+      deletedVendorKeys:[...new Set([...deletedVendorKeys,...selectedVendorKeys])],
+      inactiveVendorKeys:inactiveVendorKeys.filter(key=>!selectedVendorKeys.includes(key)),vendorEdits:nextEdits,
     })
-    setSelectedVendorKeys([])
+    if(saved)setSelectedVendorKeys([])
   }
-
-  function toggleSelectedVendorsInactive() {
-    if (selectedVendorKeys.length === 0) return
-
-    const shouldRestore = selectedVendorKeys.every((key) =>
-      inactiveVendorKeys.includes(key),
-    )
-
-    setInactiveVendorKeys((current) =>
-      shouldRestore
-        ? current.filter((key) => !selectedVendorKeys.includes(key))
-        : [...new Set([...current, ...selectedVendorKeys])],
-    )
-    setSelectedVendorKeys([])
+  async function toggleSelectedVendorsInactive() {
+    if(!selectedVendorKeys.length)return
+    const restore=selectedVendorKeys.every(key=>inactiveVendorKeys.includes(key))
+    const saved=await updateWorkspace({inactiveVendorKeys:restore?inactiveVendorKeys.filter(key=>!selectedVendorKeys.includes(key)):[...new Set([...inactiveVendorKeys,...selectedVendorKeys])]})
+    if(saved)setSelectedVendorKeys([])
   }
 
   function openProject(projectId: string) {
@@ -2232,6 +1858,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
   }
 
   function openExpenseEditor() {
+    setExpenseEditRevision(workspaceStore?.revision)
     const expense = expenses.find((item) => item.id === selectedExpenseIds[0])
 
     if (!expense || selectedExpenseIds.length !== 1) return
@@ -2257,7 +1884,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     setIsExpenseModalOpen(true)
   }
 
-  function deleteSelectedExpenses() {
+  async function deleteSelectedExpenses() {
     if (selectedExpenseIds.length === 0) return
 
     const canDelete = window.confirm(
@@ -2265,9 +1892,10 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     )
     if (!canDelete) return
 
-    setExpenses((current) =>
+    const saved = await setExpenses((current) =>
       current.filter((expense) => !selectedExpenseIds.includes(expense.id)),
     )
+    if (!saved) return
     setSelectedExpenseIds([])
     setEditingExpenseId(null)
   }
@@ -2305,6 +1933,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
   }
 
   function openNewExpenseModal() {
+    setExpenseEditRevision(workspaceStore?.revision)
     setEditingExpenseId(null)
     setExpenseForm((current) => ({
       ...current,
@@ -2365,7 +1994,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     })
   }
 
-  function addExpense(event: FormEvent<HTMLFormElement>) {
+  async function addExpense(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const resolvedExpenseKind =
       expenseForm.kind === '기타'
@@ -2388,7 +2017,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     if (!expenseForm.vendor.trim() || !amount) return
 
     if (editingExpenseId) {
-      setExpenses((current) =>
+      const saved = await setExpenses((current) =>
         current.map((expense) =>
           expense.id === editingExpenseId
             ? {
@@ -2405,7 +2034,9 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
               }
             : expense,
         ),
+        expenseEditRevision,
       )
+      if (!saved) return
       setSelectedProjectId(expenseForm.projectId)
       setEditingExpenseId(null)
       setSelectedExpenseIds([])
@@ -2424,7 +2055,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
       return
     }
 
-    setExpenses((current) => [
+    const saved = await setExpenses((current) => [
       {
         id: crypto.randomUUID(),
         projectId: expenseForm.projectId,
@@ -2438,7 +2069,8 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
         amount,
       },
       ...current,
-    ])
+    ], expenseEditRevision)
+    if (!saved) return
     setSelectedProjectId(expenseForm.projectId)
     setExpenseForm((current) => ({
       ...current,
@@ -2479,7 +2111,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
     }))
   }
 
-  function addWorkLog(event: FormEvent<HTMLFormElement>) {
+  async function addWorkLog(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const overtimeHours = Number(workLogForm.overtimeHours) || 0
     const hours = calculateWorkHours(
@@ -2508,7 +2140,8 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
       hours: worker.hours,
     }))
 
-    setWorkLogs((current) => [...newWorkLogs, ...current])
+    const saved = await setWorkLogs((current) => [...newWorkLogs, ...current])
+    if (!saved) return
     setSelectedProjectId(workLogForm.projectId)
     setWorkLogForm((current) => ({
       ...current,
@@ -2658,7 +2291,7 @@ function App({ orderStore }: { orderStore?: SharedOrderStore } = {}) {
           </div>
         </header>
 
-        {view === 'deliveries' && <DeliveryPerformance />}
+        {view === 'deliveries' && <DeliveryPerformance workspaceStore={workspaceStore} />}
         {view === 'home' && (
           <section className="home-view">
             <section className="welcome-banner">

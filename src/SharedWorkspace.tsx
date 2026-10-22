@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import App from './App'
 import type { Order } from './orderTypes'
+import type { WorkspaceData, WorkspaceSnapshot } from './workspaceTypes'
+import { browserWorkspace, mergeBrowserWorkspace } from './browserWorkspace'
 import './SharedWorkspace.css'
 
 type User = { email: string; name: string; sub: string }
-type Session = { user: User | null; clientId?: string; nonce?: string }
-type Snapshot = { orders: Order[]; revision: number | string }
+type Session = { user: User | null; clientId?: string; nonce?: string; canInitialize?: boolean }
+type OrderSnapshot = { orders: Order[]; revision: number | string }
+type Snapshot = OrderSnapshot & { workspace: WorkspaceSnapshot }
 type GoogleIdentity = { initialize: (config: { client_id: string; nonce: string; callback: (response: { credential: string }) => void }) => void; renderButton: (element: HTMLElement, config: { theme: string; size: string; text: string; locale: string }) => void; disableAutoSelect: () => void }
 declare global { interface Window { google?: { accounts: { id: GoogleIdentity } } } }
 
@@ -14,6 +17,11 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const body = await response.json().catch(() => ({}))
   if (!response.ok) throw Object.assign(new Error(body.error || '서버에 연결할 수 없습니다.'), { status: response.status })
   return body as T
+}
+
+async function loadSnapshot(signal?: AbortSignal): Promise<Snapshot> {
+  const [orders,workspace] = await Promise.all([api<OrderSnapshot>('/api/orders',{signal}),api<WorkspaceSnapshot>('/api/workspace',{signal})])
+  return {...orders,workspace}
 }
 
 function GoogleButton({ clientId, nonce, onCredential }: { clientId: string; nonce: string; onCredential: (credential: string) => void }) {
@@ -46,7 +54,7 @@ function GoogleButton({ clientId, nonce, onCredential }: { clientId: string; non
   return <><div ref={host} />{error && <p role="alert">{error}</p>}</>
 }
 
-function SignedInWorkspace({ user, onSignOut }: { user: User; onSignOut: () => Promise<void> }) {
+function SignedInWorkspace({ user, canInitialize, onSignOut }: { user: User; canInitialize: boolean; onSignOut: () => Promise<void> }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
@@ -56,7 +64,7 @@ function SignedInWorkspace({ user, onSignOut }: { user: User; onSignOut: () => P
     if (busy.current) return
     busy.current = true
     try {
-      const data = await api<Snapshot>('/api/orders')
+      const data = await loadSnapshot()
       setSnapshot(data)
       setMessage('')
     } catch (error) {
@@ -67,7 +75,7 @@ function SignedInWorkspace({ user, onSignOut }: { user: User; onSignOut: () => P
     let active = true
     const controller = new AbortController()
     busy.current = true
-    void api<Snapshot>('/api/orders', { signal: controller.signal })
+    void loadSnapshot(controller.signal)
       .then(data => { if (active) { setSnapshot(data); setMessage('') } })
       .catch(error => { if (active) setMessage(error instanceof Error ? error.message : '수주대장을 불러오지 못했습니다.') })
       .finally(() => { if (active) busy.current = false })
@@ -81,31 +89,58 @@ function SignedInWorkspace({ user, onSignOut }: { user: User; onSignOut: () => P
     busy.current = true
     setSaving(true)
     try {
-      const data = await api<Snapshot>('/api/orders', { method: 'PUT', body: JSON.stringify({ orders, revision }) })
-      setSnapshot(data)
+      const data = await api<OrderSnapshot>('/api/orders', { method: 'PUT', body: JSON.stringify({ orders, revision }) })
+      setSnapshot(current => current ? {...current,...data} : null)
       setMessage('수주대장 저장 완료')
       return true
     } catch (error) {
       const text = error instanceof Error ? error.message : '저장하지 못했습니다. 다시 시도해 주세요.'
       setMessage(text)
       if ((error as { status?: number }).status === 409) {
-        try { setSnapshot(await api<Snapshot>('/api/orders')) } catch { /* Keep the last successfully loaded data. */ }
+        try { setSnapshot(await loadSnapshot()) } catch { /* Keep the last successfully loaded data. */ }
       }
       window.alert(text)
       return false
     } finally { busy.current = false; setSaving(false) }
   }
+  async function saveWorkspace(patch: Partial<WorkspaceData>, revision: string, initialize=false) {
+    if (!snapshot || busy.current) { setMessage('다른 요청을 처리 중입니다. 잠시 후 다시 저장해 주세요.'); return false }
+    busy.current=true;setSaving(true)
+    try {
+      const workspace=await api<WorkspaceSnapshot>('/api/workspace',{method:'PUT',body:JSON.stringify({data:{...snapshot.workspace.data,...patch},revision,initialize})})
+      setSnapshot(current=>current?{...current,workspace}:null)
+      setMessage('공용 자료 저장 완료')
+      return true
+    }catch(error){
+      const message=error instanceof Error?error.message:'저장하지 못했습니다.'
+      setMessage(message);window.alert(message)
+      if((error as {status?:number}).status===409){try{setSnapshot(await loadSnapshot())}catch{/* Preserve the last snapshot. */}}
+      return false
+    }finally{busy.current=false;setSaving(false)}
+  }
+  async function importBrowser(initialize=false) {
+    if(!snapshot)return
+    try {
+      const local=browserWorkspace(snapshot.orders)
+      const result=initialize?{data:local,added:local.expenses.length+local.workLogs.length+local.deliveries.length,conflicts:0}:mergeBrowserWorkspace(snapshot.workspace.data,local)
+      if(!initialize && !result.added){window.alert(`추가할 브라우저 자료가 없습니다.${result.conflicts?' 공용 자료와 다른 기존 항목은 덮어쓰지 않았습니다.':''}`);return}
+      if(!initialize && !window.confirm(`기존 브라우저 자료 ${result.added}건을 직원들과 공유할까요? 공용 자료와 다른 ${result.conflicts}건은 덮어쓰지 않습니다.`))return
+      await saveWorkspace(result.data,snapshot.workspace.revision,initialize)
+    }catch(error){window.alert(error instanceof Error?error.message:'브라우저 자료를 읽지 못했습니다.')}
+  }
   return <>
     <div className="shared-workspace-bar">
-      <div><strong>수주대장 공유 중</strong><span>{user.name} · {user.email}</span><small>수주대장은 직원들과 공유됩니다. 지출·작업일보 등 다른 자료는 이 브라우저에 저장됩니다.</small></div>
+      <div><strong>전체 업무 자료 공유 중</strong><span>{user.name} · {user.email}</span><small>수주·지출·작업일보·납품실적·거래처를 직원들과 함께 조회하고 수정합니다.</small></div>
       <div className="shared-workspace-buttons">
+        {canInitialize && snapshot?.workspace.initialized && <button type="button" className="ghost-button" disabled={saving} onClick={()=>void importBrowser()}>기존 브라우저 자료 추가</button>}
         <button type="button" className="ghost-button" disabled={saving} onClick={() => void refresh()}>최신 상태 확인</button>
         <button type="button" className="ghost-button" disabled={saving} onClick={() => { setSignOutError(''); void onSignOut().catch(() => setSignOutError('로그아웃에 실패했습니다. 다시 시도해 주세요.')) }}>로그아웃</button>
       </div>
     </div>
     {(message || signOutError) && <p className="shared-workspace-message" role="status">{signOutError || message}</p>}
     {!snapshot ? <div className="workspace-login"><p>{message || '공유 수주대장을 불러오는 중입니다.'}</p><button className="ghost-button" onClick={() => void refresh()}>다시 불러오기</button></div>
-      : <><div inert={saving || undefined}><App orderStore={{ ...snapshot, save }} /></div>{saving && <div className="workspace-saving" role="status">수주대장 저장 중…</div>}</>}
+      : !snapshot.workspace.initialized ? <div className="workspace-login"><section className="workspace-login-card"><h2>전체 업무 공유 연결</h2><p>기존 수주대장과 함께 지출·작업일보·납품실적·거래처를 공용으로 연결합니다. 이 브라우저의 원본은 보존됩니다.</p>{canInitialize ? <button type="button" className="primary-button" disabled={saving} onClick={()=>void importBrowser(true)}>기존 자료를 공용으로 연결</button> : <p>관리자가 기존 자료를 연결할 때까지 기다려 주세요.</p>}</section></div>
+      : <><div inert={saving || undefined}><App orderStore={{ orders:snapshot.orders,revision:snapshot.revision,save }} workspaceStore={{...snapshot.workspace,save:saveWorkspace}} /></div>{saving && <div className="workspace-saving" role="status">공용 자료 저장 중…</div>}</>}
   </>
 }
 
@@ -140,7 +175,7 @@ export default function SharedWorkspace() {
     setSession(null)
     await loadSession()
   }
-  if (session?.user) return <SignedInWorkspace key={session.user.sub} user={session.user} onSignOut={signOut} />
+  if (session?.user) return <SignedInWorkspace key={session.user.sub} user={session.user} canInitialize={session.canInitialize===true} onSignOut={signOut} />
   return <main className="workspace-login"><section className="workspace-login-card">
     <span className="workspace-login-brand">CHANGJO ENGINEERING</span>
     <h1>창조이엔지 공사 관리</h1>

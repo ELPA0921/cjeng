@@ -1,0 +1,31 @@
+import {test} from 'node:test'
+import assert from 'node:assert/strict'
+import {validateWorkspace} from './workspaceValidation.ts'
+import {createWorkspaceHandler} from '../api/workspace.ts'
+import {sameOrigin} from './security.ts'
+const origin='https://workspace.example.test'
+const empty=()=>({expenses:[],workLogs:[],purchases:[],inactiveVendorKeys:[],deletedVendorKeys:[],vendorEdits:{},customVendorContacts:{purchase:[],order:[]},deliveries:[]})
+const data=()=>({...empty(),expenses:[{id:'e',projectId:'p',date:'2026-10-22',kind:'법인카드',vendor:'거래처',memo:'',amount:1100,supplyAmount:1000,vatAmount:100}],workLogs:[{id:'w',projectId:'p',date:'2026-10-22',worker:'직원',workerType:'직원',startTime:'07:30',endTime:'16:30',location:'',task:'작업',note:'',hours:8,overtimeHours:0}]})
+const req=(body,method='PUT')=>({method,headers:{origin,'content-type':'application/json'},body})
+const res=()=>({statusCode:200,setHeader(){},end(value){this.body=JSON.parse(value)}})
+test('all-menu validation preserves amounts, empty notes and dates; rejects corrupt data and duplicate IDs',()=>{
+  assert.deepEqual(validateWorkspace(data()),data())
+  const broken=data();broken.expenses[0].amount=Infinity
+  assert.throws(()=>validateWorkspace(broken),/숫자/)
+  const invalid=data();invalid.workLogs[0].date='2026-02-30'
+  assert.throws(()=>validateWorkspace(invalid),/날짜/)
+  const duplicate=data();duplicate.expenses.push({...duplicate.expenses[0]})
+  assert.throws(()=>validateWorkspace(duplicate),/중복/)
+})
+test('all-menu API denies outsiders and cross-origin writes, restricts initialization, and reports conflict/failure',async()=>{
+  let user=null,calls=0,conflict=false,fail=false
+  const deps={readSession:async()=>user,sameOrigin,settings:()=>({origin,allowed:new Set(['admin@example.test','staff@example.test'])}),workspaceSheetsRequest:async()=>{calls++;if(fail)throw new Error('offline');return conflict?null:{data:data(),revision:'a'.repeat(64),initialized:true}}}
+  const handler=createWorkspaceHandler(deps)
+  let response=res();await handler(req({},'GET'),response);assert.equal(response.statusCode,401)
+  user={email:'staff@example.test'}
+  response=res();await handler({...req({data:data(),revision:'a'.repeat(64)}),headers:{origin:'https://evil.example','content-type':'application/json'}},response);assert.equal(response.statusCode,403)
+  response=res();await handler(req({data:data(),revision:'a'.repeat(64),initialize:true}),response);assert.equal(response.statusCode,403);assert.equal(calls,0)
+  response=res();await handler(req({data:data(),revision:'a'.repeat(64)}),response);assert.equal(response.statusCode,200)
+  conflict=true;response=res();await handler(req({data:data(),revision:'a'.repeat(64)}),response);assert.equal(response.statusCode,409)
+  fail=true;response=res();await handler(req({data:data(),revision:'a'.repeat(64)}),response);assert.equal(response.statusCode,503)
+})

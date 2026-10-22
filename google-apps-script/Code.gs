@@ -28,7 +28,7 @@ function doPost(event) {
     if (!cjengEqual_(envelope.signature, expected)) throw new Error('unauthorized');
     const body = JSON.parse(envelope.payload);
     if (!Number.isFinite(body.issuedAt) || Math.abs(Date.now() - body.issuedAt) > 60000 || !/^[0-9a-f-]{36}$/i.test(body.nonce)) throw new Error('expired');
-    if (body.action !== 'read' && body.action !== 'write') throw new Error('invalid action');
+    if (!['read','write','workspace-read','workspace-write'].includes(body.action)) throw new Error('invalid action');
     lock = LockService.getScriptLock();
     if (!lock.tryLock(15000)) throw new Error('busy');
     locked = true;
@@ -36,6 +36,7 @@ function doPost(event) {
     if (cache.get(body.nonce)) throw new Error('replayed request');
     cache.put(body.nonce, '1', 120);
     const workbook = SpreadsheetApp.openById(id);
+    if (body.action === 'workspace-read' || body.action === 'workspace-write') return cjengWorkspace_(workbook,body);
     const sheet = workbook.getSheetByName('수주대장');
     if (!sheet || sheet.getLastRow() > 10001) throw new Error('invalid sheet');
     const header = sheet.getRange(1,1,1,12).getDisplayValues()[0];
@@ -58,6 +59,46 @@ function doPost(event) {
   } catch (_) {
     return cjengJson_({ok:false,error:'공유 수주대장 요청을 처리하지 못했습니다.'});
   } finally { if (locked) lock.releaseLock(); }
+}
+
+// JSON chunks keep numeric values, newlines and optional fields intact. The prefix
+// prevents any chunk (including text that starts with '=') being a sheet formula.
+function cjengWorkspace_(workbook,body) {
+  let sheet=workbook.getSheetByName('홈페이지 공용자료');
+  const empty={expenses:[],workLogs:[],purchases:[],inactiveVendorKeys:[],deletedVendorKeys:[],vendorEdits:{},customVendorContacts:{purchase:[],order:[]},deliveries:[]};
+  let initialized=false, data=empty;
+  if(sheet && sheet.getLastRow()) {
+    if(sheet.getLastRow()>100)throw new Error('invalid workspace size');
+    const cells=sheet.getRange(1,1,sheet.getLastRow(),1).getDisplayValues().map(row=>row[0]);
+    if(cells[0]!=='CJENG_WORKSPACE_V1')throw new Error('invalid workspace');
+    const chunks=cells.slice(1).filter(String);
+    if(chunks.some(cell=>!cell.startsWith('json:')))throw new Error('invalid chunk');
+    data=JSON.parse(chunks.map(cell=>cell.slice(5)).join(''));
+    initialized=true;
+  }
+  const revision=cjengRevision_([initialized,data]);
+  if(body.action==='workspace-read')return cjengJson_({ok:true,data:{data:data,revision:revision,initialized:initialized}});
+  const input=body.data;
+  if(!input || input.revision!==revision || input.initialize===initialized)return cjengJson_({ok:false,conflict:true});
+  const next=input.data, serialized=JSON.stringify(next);
+  if(!next || typeof next!=='object' || !serialized || serialized.length>1500000)throw new Error('invalid workspace data');
+  for(const key of ['expenses','workLogs','purchases','inactiveVendorKeys','deletedVendorKeys','deliveries'])if(!Array.isArray(next[key]) || next[key].length>20000)throw new Error('invalid collection');
+  if(!next.vendorEdits || !next.customVendorContacts || !Array.isArray(next.customVendorContacts.purchase) || !Array.isArray(next.customVendorContacts.order))throw new Error('invalid vendors');
+  if(!sheet)sheet=workbook.insertSheet('홈페이지 공용자료');
+  const values=[['CJENG_WORKSPACE_V1']];
+  for(let start=0;start<serialized.length;) {
+    let end=Math.min(start+30000,serialized.length);
+    const last=serialized.charCodeAt(end-1);
+    if(last>=0xD800 && last<=0xDBFF)end--;
+    values.push(['json:'+serialized.slice(start,end)]);
+    start=end;
+  }
+  const count=Math.max(values.length,sheet.getLastRow());
+  while(values.length<count)values.push(['']);
+  if(sheet.getMaxRows()<count)sheet.insertRowsAfter(sheet.getMaxRows(),count-sheet.getMaxRows());
+  sheet.getRange(1,1,count,1).setValues(values);
+  SpreadsheetApp.flush();
+  return cjengJson_({ok:true,data:{data:next,revision:cjengRevision_([true,next]),initialized:true}});
 }
 
 function cjengValidate_(orders) {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import seed from './deliverySeed.json'
+import type { SharedWorkspaceStore } from './workspaceTypes'
 import {
   deliveryColumns, deliveryCsv, deliveryKey, emptyDeliveryFilters,
   filterDeliveries, isDelivery, prepareDeliveryImport,
@@ -30,23 +31,25 @@ function downloadCsv(records: Delivery[], name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-export default function DeliveryPerformance() {
-  const [saved, setSaved] = useState(readDeliveries)
+export default function DeliveryPerformance({workspaceStore}:{workspaceStore?:SharedWorkspaceStore}) {
+  const [localSaved, setSaved] = useState(readDeliveries)
+  const saved=workspaceStore?{records:workspaceStore.data.deliveries,error:''}:localSaved
   const [filters, setFilters] = useState(emptyDeliveryFilters)
   const [sort, setSort] = useState<{ key: DeliveryField; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' })
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
-  const [preview, setPreview] = useState<(DeliveryImport & { text: string; name: string }) | null>(null)
+  const [preview, setPreview] = useState<(DeliveryImport & { text: string; name: string; revision?: string }) | null>(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [reading, setReading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    if(workspaceStore)return
     const refresh = (event: StorageEvent) => { if (event.key === storageKey || event.key === null) setSaved(readDeliveries()) }
     window.addEventListener('storage', refresh)
     return () => window.removeEventListener('storage', refresh)
-  }, [])
+  }, [workspaceStore])
 
   const years = [...new Set(saved.records.map(record => record.date.slice(0, 4)))].sort().reverse()
   const invalidRange = Boolean(filters.from && filters.to && filters.from > filters.to)
@@ -73,23 +76,24 @@ export default function DeliveryPerformance() {
       catch { text = new TextDecoder('euc-kr', { fatal: true }).decode(bytes) }
       const result = prepareDeliveryImport(text, saved.records)
       if (!result.total) throw new Error('CSV에 추가할 데이터가 없습니다.')
-      setPreview({ ...result, text, name: file.name })
+      setPreview({ ...result, text, name: file.name, revision:workspaceStore?.revision })
     } catch (cause) { setError(cause instanceof Error ? cause.message : '파일을 읽을 수 없습니다.') }
     finally { setReading(false) }
   }
 
-  function confirmImport() {
+  async function confirmImport() {
     if (!preview || preview.errors.length) return
     try {
       // Re-read storage at commit time so another tab's additions are retained.
-      const latest = readDeliveries()
+      const latest = workspaceStore ? {records:workspaceStore.data.deliveries,error:''} : readDeliveries()
       if (latest.error) throw new Error(latest.error)
       const result = prepareDeliveryImport(preview.text, latest.records)
       if (result.errors.length) throw new Error(result.errors.join('\n'))
       const additions = result.records.map(record => ({ ...record, id: crypto.randomUUID() }))
       const records = [...latest.records, ...additions]
-      localStorage.setItem(storageKey, JSON.stringify({ version: 1, records }))
-      setSaved({ records, error: '' }); setPreview(null); setFilters(emptyDeliveryFilters); setPage(1)
+      if(workspaceStore){if(!await workspaceStore.save({deliveries:records},preview.revision ?? workspaceStore.revision))return}
+      else { localStorage.setItem(storageKey, JSON.stringify({ version: 1, records })); setSaved({ records, error: '' }) }
+       setPreview(null); setFilters(emptyDeliveryFilters); setPage(1)
       setMessage(`${additions.length}건을 추가했습니다.${result.duplicates ? ` 중복 ${result.duplicates}건은 제외했습니다.` : ''}`)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '저장 공간이 부족하거나 브라우저 저장이 차단되어 추가하지 못했습니다.')
@@ -111,7 +115,7 @@ export default function DeliveryPerformance() {
           }} />
         </div>
       </div>
-      <p className="delivery-storage-note">추가한 데이터는 현재 브라우저에 저장됩니다. 다른 PC에서 보려면 CSV로 내보낸 후 불러오세요.</p>
+      <p className="delivery-storage-note">{workspaceStore ? '추가한 납품실적은 직원들과 공유됩니다. 저장 후 다른 화면에도 자동으로 반영됩니다.' : '추가한 데이터는 현재 브라우저에 저장됩니다. 다른 PC에서 보려면 CSV로 내보낸 후 불러오세요.'}</p>
       {(error || saved.error) && <p role="alert" className="delivery-error">{error || saved.error}</p>}
       <p className="delivery-status" role="status">{message}</p>
 
