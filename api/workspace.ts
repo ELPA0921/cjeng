@@ -17,7 +17,7 @@ return async function handler(req: IncomingMessage & {body?: unknown},res: Serve
     if(!deps.sameOrigin(req,deps.settings().origin)){res.statusCode=403;res.end(JSON.stringify({error:'접속 주소를 확인하세요.'}));return}
     let input
     try {
-      if(Number(req.headers['content-length'])>2000000)throw new Error('자료가 너무 큽니다.')
+      if(Number(req.headers['content-length'])>4000000)throw new Error('자료가 너무 큽니다.')
       const body=typeof req.body==='string'?JSON.parse(req.body):req.body as {data?:unknown;revision?:unknown;initialize?:unknown}
       input={data:validateWorkspace(body?.data),revision:validateRevision(body?.revision),initialize:body?.initialize===true}
       if(typeof input.revision!=='string')throw new Error('자료를 다시 불러오세요.')

@@ -2,6 +2,7 @@ import { createHmac, randomUUID } from 'node:crypto'
 import { settings } from './security.ts'
 import { validateOrders, validateRevision } from './orderValidation.ts'
 import { validateWorkspace } from './workspaceValidation.ts'
+import { packWorkspace } from './workspaceCodec.ts'
 
 type SheetsAction = 'read' | 'write' | 'workspace-read' | 'workspace-write'
 export function signedEnvelope(action: SheetsAction, data: unknown, secret: string) {
@@ -29,7 +30,11 @@ export async function sheetsRequest(action: 'read' | 'write', data?: unknown) {
   return body ? { orders: validateOrders(body.orders), revision: validateRevision(body.revision) } : null
 }
 export async function workspaceSheetsRequest(action: 'workspace-read' | 'workspace-write', data?: unknown) {
-  const body=await request(action,data)
+  const input = data as { data?: unknown } | undefined
+  const outgoing = action === 'workspace-write' && input?.data
+    ? { ...input, data: packWorkspace(validateWorkspace(input.data)) }
+    : data
+  const body=await request(action,outgoing)
   if(!body)return null
   const revision=validateRevision(body.revision)
   if(typeof revision!=='string' || typeof body.initialized!=='boolean')throw new Error('공유 자료 응답을 확인하세요.')

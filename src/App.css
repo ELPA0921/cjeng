@@ -1085,6 +1085,41 @@ tr.selected-row td {
   gap: 3px;
 }
 
+.work-category-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.work-category-legend span {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.calendar-entry[data-work-category] {
+  white-space: normal;
+  overflow-wrap: normal;
+  padding: 5px;
+  line-height: 1.5;
+}
+
+.calendar-entry small { display: block; font-size: inherit; }
+
+[data-work-category='공장 직원'] { background: #dbeafe; color: #1e40af; }
+[data-work-category='공장 인력'] { background: #eff6ff; color: #1d4ed8; }
+[data-work-category='현장 직원'] { background: #d1fae5; color: #065f46; }
+[data-work-category='현장 인력'] { background: #ecfdf5; color: #047857; }
+
+.calendar-entry[data-work-category='공장 직원'] { background: #dbeafe; color: #1e40af; }
+.calendar-entry[data-work-category='공장 인력'] { background: #eff6ff; color: #1d4ed8; }
+.calendar-entry[data-work-category='현장 직원'] { background: #d1fae5; color: #065f46; }
+.calendar-entry[data-work-category='현장 인력'] { background: #ecfdf5; color: #047857; }
+
+.worklog-list-table select { max-width: 240px; min-width: 140px; }
+
 .calendar-entry,
 .calendar-more {
   overflow: hidden;

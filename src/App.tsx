@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import './App.css'
 import './design.css'
+import { getWorkCategory, workCategories, workProjectLabel, type WorkCategory } from './workLogCategories'
 import DeliveryPerformance from './DeliveryPerformance'
 import type { Order, SharedOrderStore } from './orderTypes'
 import type { Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
@@ -673,8 +674,13 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   }>({ key: 'date', direction: 'desc' })
   const [selectedCalendarWork, setSelectedCalendarWork] = useState<{
     date: string
-    projectId: string
+    category: WorkCategory
   } | null>(null)
+  const [workAssignmentFilter, setWorkAssignmentFilter] = useState('all')
+  const [workAssignmentMessage, setWorkAssignmentMessage] = useState('')
+  const [workAssignmentBusy, setWorkAssignmentBusy] = useState(false)
+  const [assigningWorkLog, setAssigningWorkLog] = useState<WorkLog | null>(null)
+  const [assignmentProjectId, setAssignmentProjectId] = useState('work-unassigned')
   const [workLogListYear, setWorkLogListYear] = useState('all')
   const [projectSort, setProjectSort] = useState<{
     key: ProjectSortKey
@@ -931,8 +937,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     (total, project) => total + project.cost,
     0,
   )
-  const totalHours = projectSummaries.reduce(
-    (total, project) => total + project.hours,
+  const totalHours = workLogs.reduce(
+    (total, log) => total + log.hours,
     0,
   )
   const activeProjectCount = projectSummaries.filter(
@@ -953,7 +959,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
         .filter(
           (workLog) =>
             workLog.date === selectedCalendarWork.date &&
-            workLog.projectId === selectedCalendarWork.projectId,
+            getWorkCategory(workLog) === selectedCalendarWork.category,
         )
         .sort((a, b) => {
           const aValue = getWorkLogSortValue(a, workLogSort.key)
@@ -966,11 +972,6 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           return workLogSort.direction === 'asc' ? result : -result
         })
     : []
-  const selectedCalendarProject = selectedCalendarWork
-    ? projectSummaries.find(
-        (project) => project.id === selectedCalendarWork.projectId,
-      )
-    : undefined
   const workLogYears = Array.from(
     new Set(workLogs.map((workLog) => workLog.date.slice(0, 4)).filter(Boolean)),
   ).sort((a, b) => compareText(b, a))
@@ -980,7 +981,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   const filteredWorkLogsForList = [...workLogs]
     .filter(
       (workLog) =>
-        workLogListYear === 'all' || workLog.date.startsWith(workLogListYear),
+        (workLogListYear === 'all' || workLog.date.startsWith(workLogListYear)) &&
+        (workAssignmentFilter === 'all' || workLog.projectId === workAssignmentFilter),
     )
     .sort((a, b) => {
       const aValue = getWorkLogSortValue(a, workLogSort.key)
@@ -1198,8 +1200,6 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
       '공수',
     ],
     rows: filteredWorkLogsForList.map((workLog) => {
-      const project = projectSummaries.find((item) => item.id === workLog.projectId)
-
       return [
         workLog.date,
         workLog.worker,
@@ -1209,7 +1209,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
         workLog.overtimeHours.toFixed(1),
         workLog.location || '-',
         workLog.task,
-        project?.orderNo ?? '-',
+        workProjectLabel(workLog.projectId, projectSummaries),
         workLog.note || '-',
         workLog.hours.toFixed(1),
         (workLog.hours / 8).toFixed(2),
@@ -2154,6 +2154,20 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
       workers: [createWorkerInput()],
     }))
     setIsWorkLogModalOpen(false)
+  }
+
+  async function assignWorkLog(id: string, projectId: string) {
+    if (workAssignmentBusy) return
+    setWorkAssignmentBusy(true)
+    try {
+      const saved = await setWorkLogs(current => current.map(log => log.id === id ? { ...log, projectId } : log))
+      setWorkAssignmentMessage(saved ? '공사 연결을 저장했습니다.' : '저장되지 않았습니다. 자료를 새로 불러온 뒤 다시 연결하세요.')
+      if (saved) setAssigningWorkLog(null)
+    } catch {
+      setWorkAssignmentMessage('저장되지 않았습니다. 다시 시도하세요.')
+    } finally {
+      setWorkAssignmentBusy(false)
+    }
   }
 
   return (
@@ -3828,6 +3842,9 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   </button>
                 </div>
               </div>
+              <div className="work-category-legend" aria-label="작업 구분 색상">
+                {workCategories.map(category => <span key={category} data-work-category={category}>{category}</span>)}
+              </div>
               <div className="calendar-grid">
                 {['일', '월', '화', '수', '목', '금', '토'].map((day) => (
                   <div className="calendar-weekday" key={day}>
@@ -3850,21 +3867,9 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   const dayLogs = calendarWorkLogs.filter(
                     (workLog) => workLog.date === day.date,
                   )
-                  const dayProjectGroups = Array.from(
-                    dayLogs
-                      .reduce((groups, workLog) => {
-                        const current = groups.get(workLog.projectId) ?? []
-                        groups.set(workLog.projectId, [...current, workLog])
-                        return groups
-                      }, new Map<string, WorkLog[]>())
-                      .entries(),
-                  ).map(([projectId, logs]) => ({
-                    logs,
-                    project: projectSummaries.find(
-                      (project) => project.id === projectId,
-                    ),
-                    projectId,
-                  }))
+                  const dayGroups = workCategories.map(category => ({
+                    category, logs: dayLogs.filter(log => getWorkCategory(log) === category),
+                  })).filter(group => group.logs.length > 0)
 
                   return (
                     <div
@@ -3891,27 +3896,24 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                         )}
                       </div>
                       <div className="calendar-day-events">
-                        {dayProjectGroups.slice(0, 2).map((group) => (
+                        {dayGroups.map((group) => (
                           <button
                             className="calendar-entry"
-                            key={`${day.date}-${group.projectId}`}
+                            data-work-category={group.category}
+                            key={`${day.date}-${group.category}`}
+                            title={`${group.category} · ${new Set(group.logs.map(log => log.worker)).size}명 · ${(group.logs.reduce((sum, log) => sum + log.hours, 0) / 8).toFixed(2)}공수`}
                             type="button"
                             onClick={() =>
                               setSelectedCalendarWork({
                                 date: day.date,
-                                projectId: group.projectId,
+                                category: group.category,
                               })
                             }
                           >
-                            {group.project?.orderNo ?? '공사'} ·{' '}
-                            {group.logs.length}명
+                            {group.category} · {new Set(group.logs.map(log => log.worker)).size}명
+                            <small>{(group.logs.reduce((sum, log) => sum + log.hours, 0) / 8).toFixed(2)}공수</small>
                           </button>
                         ))}
-                        {dayProjectGroups.length > 2 && (
-                          <span className="calendar-more">
-                            외 {dayProjectGroups.length - 2}건
-                          </span>
-                        )}
                       </div>
                     </div>
                   )
@@ -3963,8 +3965,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     <div>
                       <h3>{selectedCalendarWork.date} 작업일보</h3>
                       <span>
-                        {selectedCalendarProject?.orderNo} ·{' '}
-                        {selectedCalendarProject?.projectName}
+                        {selectedCalendarWork.category}
                       </span>
                     </div>
                     <button
@@ -3980,6 +3981,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                       <thead>
                         <tr>
                           <th>{renderWorkLogSortButton('worker', '작업자')}</th>
+                          <th>공사</th>
                           <th>{renderWorkLogSortButton('workerType', '구분')}</th>
                           <th>{renderWorkLogSortButton('startTime', '시간')}</th>
                           <th>{renderWorkLogSortButton('location', '장소')}</th>
@@ -3991,6 +3993,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                         {selectedCalendarWorkLogs.map((workLog) => (
                           <tr key={workLog.id}>
                             <td>{workLog.worker}</td>
+                            <td>{workProjectLabel(workLog.projectId, projectSummaries)}</td>
                             <td>{workLog.workerType}</td>
                             <td>
                               {workLog.startTime}-{workLog.endTime}
@@ -4037,6 +4040,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     })
                   }
                 >
+                  <option value="work-unassigned">공사 미지정</option>
+                  <option value="work-common">공통업무</option>
                   {yearlyProjectSummaries.map((order) => (
                     <option key={order.id} value={order.id}>
                       {order.orderNo} · {order.projectName}
@@ -4302,6 +4307,11 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
               </div>
 
               <div className="worklog-list-toolbar">
+                <label>공사 배정
+                  <select aria-label="공사 배정 필터" value={workAssignmentFilter} onChange={event => setWorkAssignmentFilter(event.target.value)}>
+                    <option value="all">전체</option><option value="work-unassigned">공사 미지정</option><option value="work-common">공통업무</option>
+                  </select>
+                </label>
                 <div className="project-year-switch" aria-label="작업일보 조회 년도">
                   <button
                     className={workLogListYear === 'all' ? 'active' : ''}
@@ -4343,10 +4353,6 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   </thead>
                   <tbody>
                     {filteredWorkLogsForList.map((workLog) => {
-                      const project = projectSummaries.find(
-                        (item) => item.id === workLog.projectId,
-                      )
-
                       return (
                         <tr key={workLog.id}>
                           <td className="date-cell">{workLog.date}</td>
@@ -4357,7 +4363,11 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                           <td>{workLog.overtimeHours.toFixed(1)}</td>
                           <td>{workLog.location || '-'}</td>
                           <td>{workLog.task}</td>
-                          <td>{project?.orderNo ?? '-'}</td>
+                          <td>
+                            <button className="text-link" type="button" aria-label={`${workLog.date} ${workLog.worker} 공사 연결`} onClick={() => { setAssigningWorkLog(workLog); setAssignmentProjectId(workLog.projectId) }}>
+                              {workProjectLabel(workLog.projectId, projectSummaries)} · 연결 변경
+                            </button>
+                          </td>
                           <td>{workLog.note || '-'}</td>
                           <td>{workLog.hours.toFixed(1)}</td>
                           <td>{(workLog.hours / 8).toFixed(2)}</td>
@@ -4372,6 +4382,18 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   </tbody>
                 </table>
               </div>
+              <p role="status">{workAssignmentMessage}</p>
+              {assigningWorkLog && <div className="modal-backdrop" role="presentation">
+                <form className="modal-panel small-modal form-panel" role="dialog" aria-modal="true" aria-labelledby="work-assignment-title" onSubmit={event => { event.preventDefault(); void assignWorkLog(assigningWorkLog.id, assignmentProjectId) }}>
+                  <h3 id="work-assignment-title">작업일보 공사 연결</h3>
+                  <p>{assigningWorkLog.date} · {assigningWorkLog.worker} · {assigningWorkLog.task}</p>
+                  <label>연결할 공사<select value={assignmentProjectId} disabled={workAssignmentBusy} onChange={event => setAssignmentProjectId(event.target.value)}>
+                    <option value="work-unassigned">공사 미지정</option><option value="work-common">공통업무</option>
+                    {projectSummaries.map(order => <option key={order.id} value={order.id}>{order.orderNo} · {order.projectName}</option>)}
+                  </select></label>
+                  <div className="modal-actions"><button type="button" className="ghost-button" disabled={workAssignmentBusy} onClick={() => setAssigningWorkLog(null)}>취소</button><button type="submit" className="primary-button" disabled={workAssignmentBusy}>연결 저장</button></div>
+                </form>
+              </div>}
             </div>
           </section>
         )}
