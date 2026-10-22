@@ -68,6 +68,7 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
     return cards.filter(card => text(card.CardType) === 'C')
   }
   return {
+    environment: config.test ? 'test' as const : 'production' as const,
     async cards() { return (await authorizedCards()).map(safeCard) },
     async approvals(input: Row): Promise<CardApprovalPage> {
       const query = validateCardQuery(input)

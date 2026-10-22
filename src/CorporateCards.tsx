@@ -13,6 +13,7 @@ const money = (value: number | null) => value === null ? '-' : value.toLocaleStr
 export default function CorporateCards() {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
   const [cards, setCards] = useState<ConnectedCard[]>([])
+  const [environment, setEnvironment] = useState('')
   const [cardId, setCardId] = useState('')
   const [startDate, setStartDate] = useState(`${today.slice(0, 7)}-01`)
   const [endDate, setEndDate] = useState(today)
@@ -25,8 +26,8 @@ export default function CorporateCards() {
 
   useEffect(() => {
     const controller = new AbortController()
-    request<{ cards: ConnectedCard[] }>({ action: 'cards' }, controller.signal)
-      .then(data => { setCards(data.cards); setCardId(data.cards[0]?.id ?? '') })
+    request<{ cards: ConnectedCard[]; environment: string }>({ action: 'cards' }, controller.signal)
+      .then(data => { setCards(data.cards); setCardId(data.cards[0]?.id ?? ''); setEnvironment(data.environment) })
       .catch(err => { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : '카드 목록 조회에 실패했습니다.') })
       .finally(() => { if (!controller.signal.aborted) setLoadingCards(false) })
     return () => controller.abort()
@@ -54,6 +55,7 @@ export default function CorporateCards() {
       <div className="panel-heading"><div><h3>법인카드 사용내역</h3><span>바로빌에 수집된 승인·취소 내역을 조회합니다.</span></div>
         <button className="ghost-button" disabled={busy} type="button" onClick={() => { setError(''); setCards([]); setCardId(''); setResult(null); setLoadingCards(true); setReload(value => value + 1) }}>카드 목록 새로고침</button>
       </div>
+      {environment === 'test' && <p className="card-query-hint" role="status">바로빌 테스트 서버에 연결되어 있습니다. 테스트 서버에 등록된 카드의 내역만 조회합니다.</p>}
       <form className="card-query-form" onSubmit={submit}>
         <label>법인카드<select value={cardId} disabled={busy || cards.length === 0} onChange={event => { setCardId(event.target.value); clearResult() }}>
           {cards.length === 0 && <option value="">{loadingCards ? '카드 목록을 불러오는 중…' : '조회할 법인카드가 없습니다'}</option>}

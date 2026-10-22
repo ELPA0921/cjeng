@@ -19,7 +19,10 @@ export function createCardHandler(deps = { readSession, sameOrigin, settings, cl
         if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error()
         input = body as Record<string, unknown>
       } catch { throw new CardInputError('조회 조건을 확인해 주세요.') }
-      if (input.action === 'cards') res.end(JSON.stringify({ cards: await deps.client().cards() }))
+      if (input.action === 'cards') {
+        const provider = deps.client()
+        res.end(JSON.stringify({ cards: await provider.cards(), environment: provider.environment }))
+      }
       else if (input.action === 'approvals') res.end(JSON.stringify(await deps.client().approvals(input)))
       else throw new CardInputError('조회 종류를 확인해 주세요.')
     } catch (error) {
