@@ -3122,7 +3122,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     <h3>작업일보 및 작업공수</h3>
                     <span>작업시간을 8시간 기준 공수로 환산</span>
                   </div>
-                  <div className="table-wrap">
+                  <div className="table-wrap selected-worklog-scroll" role="region" aria-label="선택 공사 작업일보 목록" tabIndex={0}>
                     <table className="selected-worklog-table">
                       <thead>
                         <tr>
@@ -4197,7 +4197,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   importWorkLogsFromCsv(records, selectedProjectId),
                 )}
               </div>
-              <div className="table-wrap">
+              <div className="table-wrap selected-worklog-scroll" role="region" aria-label="선택 공사 작업일보 목록" tabIndex={0}>
                 <table className="selected-worklog-table">
                   <thead>
                     <tr>
