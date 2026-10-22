@@ -304,6 +304,7 @@ const printExportTable = (table: ExportTable) => {
 
 const expenseKindOptions = [
   '법인카드',
+  '세금계산서',
   '전자세금계산서',
   '종이세금계산서',
   '개인카드',
@@ -316,13 +317,12 @@ const calendarMonthOptions = Array.from({ length: 12 }, (_, index) =>
 
 function normalizeExpenseKind(kind: string) {
   if (kind === '카드') return '법인카드'
-  if (kind === '세금계산서') return '전자세금계산서'
 
   return kind
 }
 
 function isTaxInvoiceKind(kind: string) {
-  return kind === '전자세금계산서' || kind === '종이세금계산서'
+  return kind === '세금계산서' || kind === '전자세금계산서' || kind === '종이세금계산서'
 }
 
 const parseMoneyInput = (value: string) => Math.max(0, Number(value) || 0)
