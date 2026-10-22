@@ -1,4 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { parseNavigationHash, type NavigationRoute } from './navigation'
+import { useBrowserNavigation } from './useBrowserNavigation'
 import './App.css'
 import './design.css'
 import { getWorkCategory, workCategories, workProjectLabel, type WorkCategory } from './workLogCategories'
@@ -30,16 +32,7 @@ type ExportTable = {
 
 type CsvRecord = Record<string, string>
 
-type View =
-  | 'home'
-  | 'orders'
-  | 'project'
-  | 'dashboard'
-  | 'expenses'
-  | 'worklogs'
-  | 'worklogList'
-  | 'deliveries'
-  | 'contacts'
+type View = NavigationRoute['view']
 type ProjectDetailTab = 'worklogs' | 'expenses' | 'purchases'
 type ContactTab = 'purchase' | 'order'
 type SortDirection = 'asc' | 'desc'
@@ -591,10 +584,9 @@ function Icon({ name }: { name: IconName }) {
 }
 
 function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; workspaceStore?: SharedWorkspaceStore } = {}) {
-  const [view, setView] = useState<View>('home')
-  const [viewHistory, setViewHistory] = useState<View[]>([])
-  const [viewFuture, setViewFuture] = useState<View[]>([])
-  const [orderYear, setOrderYear] = useState(currentYear)
+  const [initialNavigation] = useState(() => parseNavigationHash(window.location.hash))
+  const [view, setView] = useState<View>(initialNavigation?.view ?? 'home')
+  const [orderYear, setOrderYear] = useState(initialNavigation?.year ?? currentYear)
   const [localOrders, setLocalOrders] = useState(() =>
     loadStoredData('cost-app-orders', defaultOrders),
   )
@@ -618,10 +610,10 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     direction: SortDirection
   }>({ key: 'orderNo', direction: 'asc' })
   const [selectedProjectId, setSelectedProjectId] = useState(
-    orderStore?.orders.find(order=>getOrderYear(order)===currentYear)?.id ?? orderStore?.orders[0]?.id ?? defaultProjectId,
+    initialNavigation?.projectId || (orderStore?.orders.find(order=>getOrderYear(order)===currentYear)?.id ?? orderStore?.orders[0]?.id ?? defaultProjectId),
   )
   const [projectDetailTab, setProjectDetailTab] =
-    useState<ProjectDetailTab>('worklogs')
+    useState<ProjectDetailTab>(initialNavigation?.projectTab ?? 'worklogs')
   const [contactTab, setContactTab] = useState<ContactTab>('purchase')
   const [selectedVendorKeys, setSelectedVendorKeys] = useState<string[]>([])
   const [vendorSearchScope, setVendorSearchScope] =
@@ -667,7 +659,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     key: ExpenseSortKey
     direction: SortDirection
   }>({ key: 'date', direction: 'desc' })
-  const [workLogMonth, setWorkLogMonth] = useState(today.slice(0, 7))
+  const [workLogMonth, setWorkLogMonth] = useState(initialNavigation?.month ?? today.slice(0, 7))
   const [workLogSort, setWorkLogSort] = useState<{
     key: WorkLogSortKey
     direction: SortDirection
@@ -796,35 +788,26 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     )
   }, [customVendorContacts, workspaceStore])
 
-  const navigateTo = (nextView: View) => {
-    if (nextView === view) return
-
-    setViewHistory((current) => [...current, view])
-    setViewFuture([])
-    setView(nextView)
-  }
-
-  const goBack = () => {
-    setViewHistory((current) => {
-      const previousView = current.at(-1)
-      if (!previousView) return current
-
-      setViewFuture((future) => [view, ...future])
-      setView(previousView)
-      return current.slice(0, -1)
-    })
-  }
-
-  const goForward = () => {
-    setViewFuture((current) => {
-      const nextView = current[0]
-      if (!nextView) return current
-
-      setViewHistory((history) => [...history, view])
-      setView(nextView)
-      return current.slice(1)
-    })
-  }
+  const restoreNavigation = useCallback((route: NavigationRoute) => {
+    setView(route.view)
+    setOrderYear(route.year)
+    setSelectedProjectId(route.projectId)
+    setProjectDetailTab(route.projectTab)
+    setWorkLogMonth(route.month)
+    setIsOrderModalOpen(false)
+    setIsExpenseModalOpen(false)
+    setIsWorkLogModalOpen(false)
+    setIsVendorModalOpen(false)
+    setIsBulkOrderStatusOpen(false)
+    setSelectedCalendarWork(null)
+    setAssigningWorkLog(null)
+    setExpenseForm(current => ({ ...current, projectId: route.projectId }))
+    setWorkLogForm(current => ({ ...current, projectId: route.projectId }))
+  }, [])
+  const { canGoBack, canGoForward } = useBrowserNavigation({ view, year: orderYear, projectId: selectedProjectId, projectTab: projectDetailTab, month: workLogMonth }, restoreNavigation)
+  const navigateTo = (nextView: View) => setView(nextView)
+  const goBack = () => window.history.back()
+  const goForward = () => window.history.forward()
 
   const projectTotals = new Map<string,{cost:number;hours:number;purchaseAmount:number;records:number}>()
   const totalFor=(id:string)=>{
@@ -2189,7 +2172,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           <div className="history-actions" aria-label="화면 이동">
             <button
               aria-label="뒤로가기"
-              disabled={viewHistory.length === 0}
+              disabled={!canGoBack}
               title="뒤로가기"
               type="button"
               onClick={goBack}
@@ -2198,7 +2181,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
             </button>
             <button
               aria-label="앞으로가기"
-              disabled={viewFuture.length === 0}
+              disabled={!canGoForward}
               title="앞으로가기"
               type="button"
               onClick={goForward}
