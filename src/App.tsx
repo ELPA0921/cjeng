@@ -666,7 +666,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   const [workLogSort, setWorkLogSort] = useState<{
     key: WorkLogSortKey
     direction: SortDirection
-  }>({ key: 'date', direction: 'desc' })
+  }>({ key: 'date', direction: 'asc' })
   const [selectedCalendarWork, setSelectedCalendarWork] = useState<{
     date: string
     category: WorkCategory
