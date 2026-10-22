@@ -304,7 +304,6 @@ const printExportTable = (table: ExportTable) => {
 
 const expenseKindOptions = [
   '법인카드',
-  '세금계산서',
   '전자세금계산서',
   '종이세금계산서',
   '개인카드',
@@ -317,6 +316,7 @@ const calendarMonthOptions = Array.from({ length: 12 }, (_, index) =>
 
 function normalizeExpenseKind(kind: string) {
   if (kind === '카드') return '법인카드'
+  if (kind === '세금계산서') return '전자세금계산서'
 
   return kind
 }
@@ -1469,7 +1469,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           id: `e-${crypto.randomUUID()}`,
           projectId: selectedProjectId,
           date: parseCsvDate(getCsvValue(record, ['일자'])),
-          kind: getCsvValue(record, ['구분']) || '기타',
+          kind: normalizeExpenseKind(getCsvValue(record, ['구분']) || '기타'),
           vendor: getCsvValue(record, ['거래처']),
           memo: getCsvValue(record, ['내용']),
           cardNumber: getCsvValue(record, ['카드번호']),

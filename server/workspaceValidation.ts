@@ -58,6 +58,7 @@ export function validateWorkspace(value: unknown): WorkspaceData {
   const edits=object(input.vendorEdits), custom=object(input.customVendorContacts)
   if (Object.keys(edits).length>20000) throw new Error('거래처 수정 자료가 너무 많습니다.')
   const expenses=records(input.expenses,['projectId','date','kind','vendor','category','memo','cardNumber'],['supplyAmount','vatAmount','amount'],['projectId','date','kind','vendor','memo','amount'],['date'])
+  for (const expense of expenses) if (expense.kind === '세금계산서') expense.kind = '전자세금계산서'
   const workLogs=records(input.workLogs,['projectId','date','worker','workerType','startTime','endTime','location','task','note'],['overtimeHours','hours'],['projectId','date','worker','workerType','startTime','endTime','location','task','note','overtimeHours','hours'],['date'])
   for (const row of workLogs) {
     if (!['직원','인력'].includes(String(row.workerType)) || !/^\d{2}:\d{2}$/.test(String(row.startTime)) || !/^\d{2}:\d{2}$/.test(String(row.endTime)) || Number(row.hours)<0 || Number(row.overtimeHours)<0) throw new Error('작업일보 항목을 확인하세요.')
