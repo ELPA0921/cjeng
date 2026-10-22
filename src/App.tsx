@@ -2474,11 +2474,8 @@ function App() {
     <main className="app-shell">
       <aside className="sidebar">
         <button className="brand-home" type="button" aria-label="홈으로 이동" onClick={() => navigateTo('home')}>
-          <span className="brand-symbol" aria-hidden="true">c<span>.</span></span>
-          <span className="brand-wordmark">창조이엔지<small>CONSTRUCTION WORKSPACE</small></span>
+          <img src="/changjo-logo.png" alt="주식회사 창조이엔지" />
         </button>
-        <div className="workspace-label"><span className="workspace-avatar">CJ</span><span>공사 관리 워크스페이스<small>CHANGJO ENGINEERING</small></span></div>
-        <p className="nav-caption">워크스페이스</p>
         <nav className="nav-tabs" aria-label="주요 메뉴">
           {([
             ['home', '홈'], ['orders', '수주대장'], ['dashboard', '공사현황'],
@@ -2491,8 +2488,7 @@ function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-note"><span className="note-mark">✳</span><strong>현장의 모든 흐름을 한곳에.</strong><p>수주부터 작업일보까지,<br />더 가볍고 명확하게 관리하세요.</p><button type="button" onClick={() => navigateTo('worklogs')}>작업일보 열기 <Icon name="arrow" /></button></div>
-        <div className="sidebar-footer"><span className="workspace-avatar">창</span><span>주식회사 창조이엔지<small>공사 관리 시스템</small></span></div>
+        <a className="corporate-site-link" href="https://www.cjeng.kr" target="_blank" rel="noopener noreferrer">공식 홈페이지 <span aria-hidden="true">↗</span></a>
       </aside>
 
       <section className="workspace">
@@ -2608,8 +2604,8 @@ function App() {
         {view === 'home' && (
           <section className="home-view">
             <section className="welcome-banner">
-              <div><p className="section-kicker">YOUR WORK, IN VIEW</p><h1>오늘의 현장, 한눈에.</h1><p>진행 중인 공사와 지출 흐름을 살펴보고<br className="mobile-break" /> 다음 업무를 시작하세요.</p><button className="welcome-action" type="button" onClick={openNewOrderModal}><Icon name="plus" /> 수주 등록하기 <Icon name="arrow" /></button></div>
-              <div className="progress-visual"><div className="progress-ring" role="img" aria-label={`전체 수주 중 진행 중 공사 ${activeProjectCount}건`} style={{ background: `conic-gradient(#527d25 0% ${orders.length ? activeProjectCount / orders.length * 100 : 0}%, #d6e9ad 0% 100%)` }}><div><span>진행 중인 공사</span><strong>{activeProjectCount}<small>건</small></strong><span>전체 {orders.length}건 중</span></div></div><span className="visual-caption"><i /> 현장 진행 현황</span></div>
+              <div><p className="section-kicker">CHANGJO ENGINEERING · CONSTRUCTION WORKSPACE</p><h1>오늘의 현장, 한눈에.</h1><p>진행 중인 공사와 지출 흐름을 살펴보고<br className="mobile-break" /> 다음 업무를 시작하세요.</p><button className="welcome-action" type="button" onClick={openNewOrderModal}><Icon name="plus" /> 수주 등록하기 <Icon name="arrow" /></button></div>
+              <div className="progress-visual"><span className="visual-caption"><i /> 진행 중인 공사</span><strong>{activeProjectCount}<small>건</small></strong><span>전체 {orders.length}건 중</span></div>
             </section>
             <div className="section-label"><h3>전체 업무 요약</h3><span>모든 연도 기준</span></div>
             <section className="metric-grid" aria-label="전체 요약">
@@ -4616,6 +4612,7 @@ function App() {
           </section>
         )}
       </section>
+      <footer className="corporate-footer"><img src="/changjo-logo.png" alt="주식회사 창조이엔지" /><div><strong>공사 관리 시스템</strong><span>Copyright © CHANGJO ENG. All rights reserved.</span></div><a href="https://www.cjeng.kr" target="_blank" rel="noopener noreferrer">cjeng.kr <span aria-hidden="true">↗</span></a></footer>
     </main>
   )
 }
