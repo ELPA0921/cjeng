@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import './App.css'
 import './design.css'
 import DeliveryPerformance from './DeliveryPerformance'
+import { defaultOrderStatus, getOrderStatus, importedOrderStatus, isOrderStatus, orderStatuses, type OrderStatus } from './orderStatus'
 import {
   orderVendorContacts,
   purchaseVendorContacts,
@@ -20,6 +21,7 @@ type Order = {
   region: string
   projectName: string
   note?: string
+  status?: OrderStatus
 }
 
 type Expense = {
@@ -914,9 +916,7 @@ function getSortDirectionLabel(
 }
 
 function getProjectStatus(order: Order) {
-  if (order.expectedCompletionDate < today) return '준공'
-  if (order.orderDate > today) return '예정'
-  return '진행중'
+  return getOrderStatus(order, today)
 }
 
 type IconName = 'home' | 'orders' | 'dashboard' | 'expenses' | 'worklogs' | 'deliveries' | 'contacts' | 'arrow' | 'plus'
@@ -1056,6 +1056,7 @@ function App() {
     region: '',
     projectName: '',
     note: '',
+    status: '' as '' | OrderStatus,
   })
 
   useEffect(() => {
@@ -1727,6 +1728,14 @@ function App() {
   }
 
   function importOrdersFromCsv(records: CsvRecord[]) {
+    const invalidStatusIndex = records.findIndex(record => {
+      const status = getCsvValue(record, ['상태']).trim()
+      return status !== '' && !isOrderStatus(status)
+    })
+    if (invalidStatusIndex >= 0) {
+      window.alert(`${invalidStatusIndex + 2}행의 상태를 확인하세요. 예정, 진행중, 보류, 준공, 취소만 입력할 수 있습니다. 아직 저장되지 않았습니다.`)
+      return
+    }
     const importedOrders = records.reduce<Order[]>((ordersToImport, record) => {
         const orderNo = getCsvValue(record, ['수주번호']).trim()
         const year = getCsvValue(record, ['년도']).trim() || orderNo.slice(0, 4)
@@ -1737,12 +1746,14 @@ function App() {
         const existing = orders.find(
           (order) => order.orderNo === orderNo && getOrderYear(order) === year,
         )
+        const orderDate = parseCsvDate(getCsvValue(record, ['수주일자']))
 
         ordersToImport.push({
           id: existing?.id ?? `o-${orderNo}-${crypto.randomUUID()}`,
           year,
           orderNo,
-          orderDate: parseCsvDate(getCsvValue(record, ['수주일자'])),
+          orderDate,
+          status: importedOrderStatus(record['상태'], orderDate, today, existing),
           expectedCompletionDate: parseCsvDate(
             getCsvValue(record, ['준공예정일']),
           ),
@@ -2074,6 +2085,7 @@ function App() {
       region: '',
       projectName: '',
       note: '',
+      status: '',
     })
     setIsOrderModalOpen(true)
   }
@@ -2100,6 +2112,7 @@ function App() {
       region: order.region,
       projectName: order.projectName,
       note: order.note ?? '',
+      status: getProjectStatus(order),
     })
     setIsOrderModalOpen(true)
   }
@@ -2144,6 +2157,7 @@ function App() {
                   region: orderForm.region,
                   projectName: orderForm.projectName,
                   note: orderForm.note,
+                  status: orderForm.status || defaultOrderStatus(orderForm.orderDate, today),
                 }
               : order,
           )
@@ -2168,6 +2182,7 @@ function App() {
       region: orderForm.region,
       projectName: orderForm.projectName,
       note: orderForm.note,
+      status: orderForm.status || defaultOrderStatus(orderForm.orderDate, today),
     }
 
     setOrders((current) =>
@@ -2188,6 +2203,7 @@ function App() {
       region: '',
       projectName: '',
       note: '',
+      status: '',
     }))
     setIsOrderModalOpen(false)
     navigateTo('orders')
@@ -3234,6 +3250,17 @@ function App() {
                       })
                     }
                   />
+                </label>
+                <label>
+                  상태
+                  <select
+                    value={orderForm.status || defaultOrderStatus(orderForm.orderDate, today)}
+                    onChange={event => {
+                      if (isOrderStatus(event.target.value)) setOrderForm({ ...orderForm, status: event.target.value })
+                    }}
+                  >
+                    {orderStatuses.map(status => <option key={status} value={status}>{status}</option>)}
+                  </select>
                 </label>
               </div>
 
