@@ -59,35 +59,42 @@ function SignedInWorkspace({ user, canInitialize, onSignOut }: { user: User; can
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const busy = useRef(false)
+  const readTask = useRef<Promise<void> | null>(null)
+  const writePending = useRef(false)
   const [signOutError, setSignOutError] = useState('')
   const refresh = useCallback(async () => {
-    if (busy.current) return
+    if (busy.current || writePending.current) return
     busy.current = true
-    try {
-      const data = await loadSnapshot()
-      setSnapshot(data)
-      setMessage('')
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '수주대장을 불러오지 못했습니다.')
-    } finally { busy.current = false }
+    const task=loadSnapshot().then(data=>{setSnapshot(data);setMessage('')})
+      .catch(error=>setMessage(error instanceof Error?error.message:'공용 자료를 불러오지 못했습니다.'))
+      .finally(()=>{busy.current=false;readTask.current=null})
+    readTask.current=task
+    await task
   }, [])
   useEffect(() => {
     let active = true
     const controller = new AbortController()
     busy.current = true
-    void loadSnapshot(controller.signal)
+    readTask.current = loadSnapshot(controller.signal)
       .then(data => { if (active) { setSnapshot(data); setMessage('') } })
       .catch(error => { if (active) setMessage(error instanceof Error ? error.message : '수주대장을 불러오지 못했습니다.') })
-      .finally(() => { if (active) busy.current = false })
+      .finally(() => { if (active) { busy.current = false; readTask.current=null } })
     const interval = window.setInterval(() => { if (document.visibilityState === 'visible') void refresh() }, 10000)
     const onFocus = () => { void refresh() }
     window.addEventListener('focus', onFocus)
     return () => { active = false; controller.abort(); window.clearInterval(interval); window.removeEventListener('focus', onFocus) }
   }, [refresh])
-  async function save(orders: Order[], revision: number | string) {
-    if (busy.current) { setMessage('다른 요청을 처리 중입니다. 잠시 후 다시 저장해 주세요.'); return false }
-    busy.current = true
+  async function startWrite() {
+    if(writePending.current)return false
+    writePending.current=true
     setSaving(true)
+    // Let an in-flight refresh finish, then serialize this save before another poll.
+    if(readTask.current)await readTask.current
+    busy.current=true
+    return true
+  }
+  async function save(orders: Order[], revision: number | string) {
+    if (!await startWrite()) return false
     try {
       const data = await api<OrderSnapshot>('/api/orders', { method: 'PUT', body: JSON.stringify({ orders, revision }) })
       setSnapshot(current => current ? {...current,...data} : null)
@@ -101,11 +108,10 @@ function SignedInWorkspace({ user, canInitialize, onSignOut }: { user: User; can
       }
       window.alert(text)
       return false
-    } finally { busy.current = false; setSaving(false) }
+    } finally { busy.current = false; writePending.current=false; setSaving(false) }
   }
   async function saveWorkspace(patch: Partial<WorkspaceData>, revision: string, initialize=false) {
-    if (!snapshot || busy.current) { setMessage('다른 요청을 처리 중입니다. 잠시 후 다시 저장해 주세요.'); return false }
-    busy.current=true;setSaving(true)
+    if (!snapshot || !await startWrite()) return false
     try {
       const workspace=await api<WorkspaceSnapshot>('/api/workspace',{method:'PUT',body:JSON.stringify({data:{...snapshot.workspace.data,...patch},revision,initialize})})
       setSnapshot(current=>current?{...current,workspace}:null)
@@ -116,7 +122,7 @@ function SignedInWorkspace({ user, canInitialize, onSignOut }: { user: User; can
       setMessage(message);window.alert(message)
       if((error as {status?:number}).status===409){try{setSnapshot(await loadSnapshot())}catch{/* Preserve the last snapshot. */}}
       return false
-    }finally{busy.current=false;setSaving(false)}
+    }finally{busy.current=false;writePending.current=false;setSaving(false)}
   }
   async function importBrowser(initialize=false) {
     if(!snapshot)return
