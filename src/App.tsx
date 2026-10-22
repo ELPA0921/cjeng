@@ -125,6 +125,9 @@ const formatNumber = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value)
 
+const formatProjectOption = (project: Pick<Order, 'orderNo' | 'client1' | 'region' | 'projectName'>) =>
+  [project.orderNo, project.client1 || '-', project.region || '-', project.projectName].join(' · ')
+
 const escapeHtml = (value: ExportCell) =>
   String(value)
     .replaceAll('&', '&amp;')
@@ -3375,7 +3378,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                 >
                   {yearlyProjectSummaries.map((project) => (
                     <option key={project.id} value={project.id}>
-                      {project.orderNo} · {project.projectName}
+                      {formatProjectOption(project)}
                     </option>
                   ))}
                 </select>
@@ -3530,7 +3533,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     >
                       {yearlyProjectSummaries.map((order) => (
                         <option key={order.id} value={order.id}>
-                          {order.orderNo} · {order.projectName}
+                          {formatProjectOption(order)}
                         </option>
                       ))}
                     </select>
@@ -3914,7 +3917,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                 >
                   {yearlyProjectSummaries.map((project) => (
                     <option key={project.id} value={project.id}>
-                      {project.orderNo} · {project.projectName}
+                      {formatProjectOption(project)}
                     </option>
                   ))}
                 </select>
@@ -4007,7 +4010,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   <option value="work-common">공통업무</option>
                   {yearlyProjectSummaries.map((order) => (
                     <option key={order.id} value={order.id}>
-                      {order.orderNo} · {order.projectName}
+                      {formatProjectOption(order)}
                     </option>
                   ))}
                 </select>
@@ -4352,7 +4355,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   <p>{assigningWorkLog.date} · {assigningWorkLog.worker} · {assigningWorkLog.task}</p>
                   <label>연결할 공사<select value={assignmentProjectId} disabled={workAssignmentBusy} onChange={event => setAssignmentProjectId(event.target.value)}>
                     <option value="work-unassigned">공사 미지정</option><option value="work-common">공통업무</option>
-                    {projectSummaries.map(order => <option key={order.id} value={order.id}>{order.orderNo} · {order.projectName}</option>)}
+                    {projectSummaries.map(order => <option key={order.id} value={order.id}>{formatProjectOption(order)}</option>)}
                   </select></label>
                   <div className="modal-actions"><button type="button" className="ghost-button" disabled={workAssignmentBusy} onClick={() => setAssigningWorkLog(null)}>취소</button><button type="submit" className="primary-button" disabled={workAssignmentBusy}>연결 저장</button></div>
                 </form>

@@ -3,9 +3,19 @@
 .workspace-login-brand { color: #1d7656; font-size: 12px; letter-spacing: 1px; font-weight: 700; }
 .workspace-login h1 { font-size: 26px; margin: 18px 0 12px; }
 .workspace-login p { line-height: 1.7; margin: 0 0 24px; }
-.shared-workspace-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; border-bottom: 1px solid #d8e2db; background: #fff; color: #1e3027; }
+.shared-workspace-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 24px; border-bottom: 1px solid #d8e2db; background: #fff; color: #1e3027; font-size: 12px; }
 .shared-workspace-bar strong, .shared-workspace-bar span, .shared-workspace-bar small { display: block; margin: 2px 0; }
 .shared-workspace-bar span, .shared-workspace-bar small { font-size: 12px; }
-.shared-workspace-buttons { display: flex; gap: 8px; }
+.shared-workspace-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.shared-workspace-identity strong { white-space: nowrap; font-size: 12px; }
+.shared-workspace-identity strong::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: #1d7656; }
+.shared-workspace-buttons { display: flex; align-items: center; gap: 6px; }
+.shared-workspace-buttons .ghost-button, .shared-workspace-management summary { min-height: 30px; padding: 5px 9px; font-size: 12px; }
+.shared-workspace-management { position: relative; }
+.shared-workspace-management summary { cursor: pointer; border: 1px solid #d8e2db; border-radius: 8px; }
+.shared-workspace-management summary:focus-visible { outline: 2px solid #1d7656; outline-offset: 2px; }
+.shared-workspace-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; min-width: 235px; max-width: calc(100vw - 32px); padding: 14px; border: 1px solid #d8e2db; border-radius: 10px; background: #fff; box-shadow: 0 8px 24px #1e302722; overflow-wrap: anywhere; }
+.shared-workspace-menu .ghost-button { margin-top: 12px; width: 100%; }
+@media (max-width: 600px) { .shared-workspace-bar { padding: 7px 16px; } .shared-workspace-identity { flex-wrap: wrap; gap: 4px 10px; } .shared-workspace-identity span { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
 .shared-workspace-message { margin: 0; padding: 10px 24px; background: #e6f2eb; color: #1e3027; }
 .workspace-saving { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; background: #ffffffb3; color: #1d7656; font-size: 20px; font-weight: 700; }

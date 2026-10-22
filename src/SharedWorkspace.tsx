@@ -136,9 +136,15 @@ function SignedInWorkspace({ user, canInitialize, onSignOut }: { user: User; can
   }
   return <>
     <div className="shared-workspace-bar">
-      <div><strong>전체 업무 자료 공유 중</strong><span>{user.name} · {user.email}</span><small>수주·지출·작업일보·납품실적·거래처를 직원들과 함께 조회하고 수정합니다.</small></div>
+      <div className="shared-workspace-identity"><strong>공용 자료 연결됨</strong><span>{user.name}</span></div>
       <div className="shared-workspace-buttons">
-        {canInitialize && snapshot?.workspace.initialized && <button type="button" className="ghost-button" disabled={saving} onClick={()=>void importBrowser()}>기존 브라우저 자료 추가</button>}
+        <details className="shared-workspace-management">
+          <summary>관리</summary>
+          <div className="shared-workspace-menu">
+            <strong>{user.name}</strong><small>{user.email}</small>
+            {canInitialize && snapshot?.workspace.initialized && <button type="button" className="ghost-button" disabled={saving} onClick={()=>void importBrowser()}>기존 브라우저 자료 추가</button>}
+          </div>
+        </details>
         <button type="button" className="ghost-button" disabled={saving} onClick={() => void refresh()}>최신 상태 확인</button>
         <button type="button" className="ghost-button" disabled={saving} onClick={() => { setSignOutError(''); void onSignOut().catch(() => setSignOutError('로그아웃에 실패했습니다. 다시 시도해 주세요.')) }}>로그아웃</button>
       </div>
