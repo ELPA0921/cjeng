@@ -70,7 +70,7 @@ export default function CorporateCards() {
       <form className="card-query-form" onSubmit={submit}>
         <label>법인카드<select value={cardId} disabled={busy || cards.length === 0} onChange={event => { setCardId(event.target.value); clearResult() }}>
           {cards.length === 0 && <option value="">{loadingCards ? '카드 목록을 불러오는 중…' : '조회할 법인카드가 없습니다'}</option>}
-          {cards.map(card => <option key={card.id} value={card.id}>{card.company} {card.number}{card.alias ? ` · ${card.alias}` : ''}</option>)}
+          {cards.map(card => <option key={card.id} value={card.id}>{card.company} {card.number}</option>)}
         </select></label>
         <label>시작일<input type="date" required value={startDate} disabled={busy} onChange={event => { setStartDate(event.target.value); clearResult() }} /></label>
         <label>종료일<input type="date" required value={endDate} disabled={busy} onChange={event => { setEndDate(event.target.value); clearResult() }} /></label>
