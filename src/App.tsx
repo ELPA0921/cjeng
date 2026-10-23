@@ -7,6 +7,7 @@ import { getWorkCategory, workCategories, workProjectLabel, type WorkCategory } 
 import DeliveryPerformance from './DeliveryPerformance'
 import CorporateCards from './CorporateCards'
 import { printExpenseSheet } from './expensePrint'
+import { planColumns } from './printLayout'
 import type { Order, SharedOrderStore } from './orderTypes'
 import type { CardAccounting, Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
 import { defaultOrders, defaultExpenses, defaultWorkLogs, defaultPurchaseOrders } from './sampleData'
@@ -239,33 +240,16 @@ const exportTableToCsv = (table: ExportTable) => {
   URL.revokeObjectURL(link.href)
 }
 
-const buildExportTableHtml = (table: ExportTable) => `
+const buildExportTableHtml = (table: ExportTable) => {
+  const line = (row: ExportCell[], tag: 'th' | 'td' = 'td') => `<tr>${row.map((value) => `<${tag}>${escapeHtml(value)}</${tag}>`).join('')}</tr>`
+  return `
   <table>
-    <thead>
-      <tr>${table.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join('')}</tr>
-    </thead>
-    <tbody>
-      ${table.rows
-        .map(
-          (row) =>
-            `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`,
-        )
-        .join('')}
-    </tbody>
-    ${
-      table.totals?.length
-        ? `<tfoot>${table.totals
-            .map(
-              (row) =>
-                `<tr>${row
-                  .map((cell) => `<td>${escapeHtml(cell)}</td>`)
-                  .join('')}</tr>`,
-            )
-            .join('')}</tfoot>`
-        : ''
-    }
+    <thead>${line(table.columns, 'th')}</thead>
+    <tbody>${table.rows.map((row) => line(row)).join('')}</tbody>
+    ${table.totals?.length ? `<tfoot>${table.totals.map((row) => line(row)).join('')}</tfoot>` : ''}
   </table>
 `
+}
 
 const printExportTable = (table: ExportTable) => {
   const printWindow = window.open('', '_blank', 'width=1200,height=800')
@@ -281,8 +265,11 @@ const printExportTable = (table: ExportTable) => {
           * { box-sizing: border-box; }
           body { margin: 0; color: #111827; font-family: Arial, "Malgun Gothic", sans-serif; }
           h1 { margin: 0 0 10px; font-size: 18px; }
+          .page { width: 277mm; }
           table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px; }
           th, td { border: 1px solid #9ca3af; padding: 5px 6px; text-align: center; word-break: keep-all; overflow-wrap: anywhere; }
+          table.measuring { width: auto; table-layout: auto; }
+          table.measuring th, table.measuring td, .nowrap { white-space: nowrap; overflow-wrap: normal; }
           th { background: #eef2f7; font-weight: 700; }
           td { vertical-align: middle; }
           tfoot td { background: #f7f8fa; font-weight: 700; }
@@ -290,12 +277,32 @@ const printExportTable = (table: ExportTable) => {
         </style>
       </head>
       <body>
-        <h1>${escapeHtml(table.title)}</h1>
-        ${buildExportTableHtml(table)}
+        <main class="page">
+          <h1>${escapeHtml(table.title)}</h1>
+          ${buildExportTableHtml(table)}
+        </main>
         <script>
-          window.addEventListener('load', () => {
-            window.focus();
-            window.print();
+          // Size columns from their measured one-line widths so short values never wrap.
+          var planColumns = (${planColumns.toString()});
+          function layoutColumns() {
+            var table = document.querySelector('table');
+            table.classList.add('measuring');
+            var natural = Array.prototype.map.call(table.tHead.rows[0].cells, function (cell) { return Math.ceil(cell.getBoundingClientRect().width) + 1 });
+            table.classList.remove('measuring');
+            var plan = planColumns(natural, table.parentElement.clientWidth);
+            var group = document.createElement('colgroup');
+            plan.widths.forEach(function (width) { var col = document.createElement('col'); col.style.width = width + 'px'; group.append(col) });
+            table.prepend(group);
+            Array.prototype.forEach.call(table.rows, function (row) {
+              Array.prototype.forEach.call(row.cells, function (cell, index) { if (plan.nowrap[index]) cell.classList.add('nowrap') });
+            });
+          }
+          window.addEventListener('load', function () {
+            (document.fonts ? document.fonts.ready : Promise.resolve()).then(function () {
+              layoutColumns();
+              window.focus();
+              window.print();
+            });
           });
         </script>
       </body>
