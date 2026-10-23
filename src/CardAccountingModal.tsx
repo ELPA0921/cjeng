@@ -64,6 +64,9 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
       <div className="modal-heading">
         <div><h3 id="card-accounting-title">{mode === 'post' ? '회계반영' : '회계반영 수정'}</h3>
           <span>{mode === 'post' ? `선택한 ${rows.length}건을 수주의 지출내역(법인카드)에 등록합니다.` : `선택한 ${rows.length}건의 반영 내용을 수정합니다.`}</span></div>
+        <button type="button" className="card-modal-close" aria-label="창 닫기" title="창 닫기" disabled={saving} onClick={onClose}>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+        </button>
       </div>
       <div className="table-wrap card-accounting-rows">
         <table><thead><tr><th>일자</th><th>거래처</th><th>금액</th>{mode === 'edit' && <th>상태</th>}<th>수주번호</th><th>내용</th></tr></thead>
