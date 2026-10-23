@@ -40,7 +40,7 @@ export default function CorporateCards({ orders, expenses, cardAccounting, onSav
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [modal, setModal] = useState<{ mode: 'post' | 'edit'; rows: CardApproval[] } | null>(null)
   const [notice, setNotice] = useState('')
-  const [filter, setFilter] = useState<Filter>('전체')
+  const [filter, setFilter] = useState<Filter>('미반영')
   const [savingForced, setSavingForced] = useState(false)
   const activeRequest = useRef<AbortController | null>(null)
   const skippedNote = useRef('')
@@ -68,7 +68,7 @@ export default function CorporateCards({ orders, expenses, cardAccounting, onSav
     catch (err) { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : '승인내역 조회에 실패했습니다.') }
     finally { if (!controller.signal.aborted) setLoading(false) }
   }
-  function submit(event: FormEvent) { event.preventDefault(); void query() }
+  function submit(event: FormEvent) { event.preventDefault(); setFilter('미반영'); void query() }
   function clearResult() { setResult(null); setError(''); setSelectedIds(new Set()); setNotice('') }
   function toggleRow(id: string, checked: boolean) {
     setSelectedIds(current => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next })
