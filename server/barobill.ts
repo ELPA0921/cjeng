@@ -95,7 +95,9 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
     const records = list(object(result.Histories).CardApprovalHistory).map(row => {
       const date = text(row.ApprovalDT), amount = number(row.ApprovalAmount), key = text(row.HistoryKey)
       if (!/^\d{14}$/.test(date) || amount === null || !key) throw new BarobillError('바로빌 승인내역의 필수 항목을 확인할 수 없습니다.')
-      return { id: token(`${text(card.CardNum)}:${key}`), dateTime: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)} ${date.slice(8,10)}:${date.slice(10,12)}:${date.slice(12,14)}`, approvalType: text(row.ApprovalType), approvalNumber: text(row.ApprovalNum), store: text(row.StoreName), storeNumber: text(row.StoreCorpNum), amount, currency: text(row.CurrencyCode) || 'KRW', supplyAmount: number(row.Amount), vatAmount: number(row.Tax), serviceCharge: number(row.ServiceCharge), memo: text(row.Memo), cardNumber }
+      // Cancellations come with a negative amount but positive tax and supply; give every part the amount's sign.
+      const signed = (part: number | null) => !part || amount >= 0 ? part : -Math.abs(part)
+      return { id: token(`${text(card.CardNum)}:${key}`), dateTime: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)} ${date.slice(8,10)}:${date.slice(10,12)}:${date.slice(12,14)}`, approvalType: text(row.ApprovalType), approvalNumber: text(row.ApprovalNum), store: text(row.StoreName), storeNumber: text(row.StoreCorpNum), amount, currency: text(row.CurrencyCode) || 'KRW', supplyAmount: signed(number(row.Amount)), vatAmount: signed(number(row.Tax)), serviceCharge: signed(number(row.ServiceCharge)), memo: text(row.Memo), cardNumber }
     })
     return { records, total, pages }
   }

@@ -118,3 +118,17 @@ test('purchase tax invoices call the TI service per tax type, merge by 승인번
   const empty = createBarobillClient(config, async () => reply('GetPeriodTaxInvoicePurchaseList', '<CurrentPage>0</CurrentPage><MaxPageNum>0</MaxPageNum><SimpleTaxInvoiceExList></SimpleTaxInvoiceExList>'))
   assert.equal((await empty.purchaseTaxInvoices({ startDate: '2026-10-01', endDate: '2026-10-23' })).total, 0)
 })
+
+test('cancellations give tax, supply and service charge the same negative sign as the amount', async () => {
+  const history = '<CurrentPage>1</CurrentPage><MaxIndex>2</MaxIndex><MaxPageNum>1</MaxPageNum><Histories>'
+    + '<CardApprovalHistory><HistoryKey>c1</HistoryKey><ApprovalDT>20261022112233</ApprovalDT><ApprovalType>취소</ApprovalType><ApprovalAmount>-41140</ApprovalAmount><Amount>0</Amount><Tax>3740</Tax><ServiceCharge>0</ServiceCharge><CurrencyCode>KRW</CurrencyCode></CardApprovalHistory>'
+    + '<CardApprovalHistory><HistoryKey>a1</HistoryKey><ApprovalDT>20261022112233</ApprovalDT><ApprovalType>승인</ApprovalType><ApprovalAmount>41140</ApprovalAmount><Amount>0</Amount><Tax>3740</Tax><ServiceCharge>0</ServiceCharge><CurrencyCode>KRW</CurrencyCode></CardApprovalHistory></Histories>'
+  const client = createBarobillClient(config, async (_url, init) => init.body.includes('<GetCardsByAuthID ') ? reply('GetCardsByAuthID', cardsXml) : reply('GetApprovalHistories', history))
+  const [card] = await client.cards()
+  const [cancel, approval] = (await client.approvals({ cardId: card.id, startDate: '2026-10-01', endDate: '2026-10-23' })).records
+  assert.deepEqual([cancel.amount, cancel.vatAmount, cancel.serviceCharge, cancel.supplyAmount], [-41140, -3740, 0, 0])
+  assert.deepEqual([approval.amount, approval.vatAmount], [41140, 3740])
+  const { cardSupplyAmount } = await import('../src/cardAmounts.ts')
+  assert.equal(cardSupplyAmount(cancel).value, -37400)
+  assert.equal(cardSupplyAmount(approval).value, 37400)
+})
