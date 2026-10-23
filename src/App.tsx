@@ -3385,7 +3385,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                 <h3>공사별 현황</h3>
                 {renderOutputButtons(dashboardExportTable)}
               </div>
-              <div className="table-wrap">
+              <div className="table-wrap dashboard-scroll">
                 <table>
                   <thead>
                     <tr>

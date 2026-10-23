@@ -211,3 +211,7 @@ input, select, textarea, .form-panel label { font-size: 14px; }
   .panel-heading .contact-tabs { display: grid; flex: 1 0 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .contact-tabs button { flex-direction: row; align-items: center; justify-content: space-between; min-height: 42px; }
 }
+
+/* 공사별 현황 scrolls inside a fixed-height box with its header row kept in view. */
+.dashboard-scroll { max-height: min(60vh, 560px); overflow: auto; }
+.dashboard-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--surface-muted); }
