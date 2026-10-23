@@ -85,7 +85,7 @@ export default function CorporateCards() {
         <div className="table-wrap card-results-scroll" role="region" aria-label="법인카드 승인내역" tabIndex={0}>
           <table className="card-results-table"><thead><tr>
             <th className="card-check"><input type="checkbox" aria-label="이 페이지 전체 선택" disabled={pageRows.length === 0} checked={pageRows.length > 0 && pageSelected === pageRows.length} ref={input => { if (input) input.indeterminate = pageSelected > 0 && pageSelected < pageRows.length }} onChange={event => togglePage(event.target.checked)} /></th>
-            <th>수주번호</th><th>사용일시 ↑</th><th>가맹점</th><th>승인금액</th><th>공급가액</th><th>부가세</th><th>카드번호</th><th>회계반영</th>
+            <th>수주번호</th><th>일자 ↑</th><th>거래처</th><th>공급가액</th><th>부가세</th><th>금액</th><th>카드번호</th><th>회계반영</th>
           </tr></thead>
             <tbody>{result.records.map(row => {
               const supply = cardSupplyAmount(row)
@@ -93,9 +93,9 @@ export default function CorporateCards() {
               return <tr key={row.id} className={selectedIds.has(row.id) ? 'card-row-selected' : undefined}>
                 <td className="card-check"><input type="checkbox" aria-label={`${row.dateTime} ${row.store} 선택`} checked={selectedIds.has(row.id)} onChange={event => toggleRow(row.id, event.target.checked)} /></td>
                 <td>-</td>
-                <td>{row.dateTime}</td><td>{row.store || '-'}</td>
+                <td title={row.dateTime}>{row.dateTime.slice(0, 10)}</td><td>{row.store || '-'}</td>
+                <td>{money(supply.value)}</td><td>{money(row.vatAmount)}</td>
                 <td><span className={cancelled ? 'card-cancelled' : undefined} title={row.approvalType || undefined}>{money(row.amount)}</span></td>
-                <td>{money(supply.value)}{supply.calculated && <small className="card-calculated" title="승인금액에서 부가세와 봉사료를 제외한 계산값">계산</small>}</td><td>{money(row.vatAmount)}</td>
                 <td>{cardLast4 || '-'}</td>
                 <td><span className="card-accounting">미반영</span></td>
               </tr>
@@ -105,7 +105,7 @@ export default function CorporateCards() {
           </table>
         </div>
         <div className="card-pagination"><button className="ghost-button" disabled={loading || result.page <= 1} onClick={() => void query(result.page - 1)}>이전 페이지</button><span>{result.page} / {Math.max(1, result.totalPages)} 페이지</span><button className="ghost-button" disabled={loading || result.page >= result.totalPages} onClick={() => void query(result.page + 1)}>다음 페이지</button></div>
-        <p className="card-query-hint">공급가액이 없거나 0인 원화 내역은 부가세·봉사료가 제공된 경우 승인금액에서 두 금액을 제외해 계산합니다. 계산한 공급가액은 ‘계산’으로 표시합니다.</p>
+        <p className="card-query-hint">공급가액이 없거나 0인 원화 내역은 부가세·봉사료가 제공된 경우 금액에서 두 금액을 제외해 계산합니다.</p>
         <p className="card-query-hint">조회 내역은 공사별 지출에 자동 등록되지 않습니다.</p>
       </> : !busy && !error && cards.length > 0 && <div className="expense-source-empty"><strong>카드와 기간을 선택한 뒤 내역 조회를 눌러주세요.</strong><p>바로빌에서 수집한 사용내역을 확인할 수 있습니다.</p></div>}
     </div>
