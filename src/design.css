@@ -204,3 +204,10 @@ input, select, textarea, .form-panel label { font-size: 14px; }
   /* Fade the right edge so it is clear more columns are off-screen; the padding keeps the last column clear once scrolled to the end. */
   .table-wrap:not(.card-accounting-rows) { padding-right: 24px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
 }
+
+/* The counts sit inside .panel-heading, so keep its subtitle style (muted colour, top margin) off them. */
+.contact-tabs button span { margin-top: 0; color: inherit; font-size: 12px; font-weight: 600; opacity: 0.85; }
+@media (max-width: 720px) {
+  .panel-heading .contact-tabs { display: grid; flex: 1 0 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .contact-tabs button { flex-direction: row; align-items: center; justify-content: space-between; min-height: 42px; }
+}
