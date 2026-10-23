@@ -2295,7 +2295,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           </div>
         </header>
 
-        {view === 'corporateCards' && <CorporateCards orders={orders} />}
+        {view === 'corporateCards' && <CorporateCards />}
         {view === 'taxInvoices' && (
           <section className="content-grid single">
             <div className="panel full expense-source-panel">
