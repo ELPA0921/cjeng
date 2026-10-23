@@ -12,6 +12,8 @@ export const allCardsId = 'all'
 // Upper bound for one card when merging every card; keeps a single request from paging forever.
 const maxPagesPerCard = 30
 const maxTaxInvoicePages = 50
+const invalidTaxTypeCode = -11010
+const taxTypeCandidates = [0, 1, 2, 3]
 // Barobill splits the API by service; card calls send the user as ID, tax invoice calls as UserID.
 const methodService = { GetCardsByAuthID: 'CARD', GetApprovalHistories: 'CARD', GetPeriodTaxInvoicePurchaseList: 'TI' } as const
 type Method = keyof typeof methodService
@@ -129,13 +131,16 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
       modified: text(row.ModifyCode).trim() !== '',
     }
   }
-  // TaxType 1 is 세금계산서 and 2 is 계산서 (면세); DateType 1 filters by 작성일자.
+  // Barobill does not document the TaxType codes, so every candidate is queried, codes it
+  // rejects as an invalid 과세형태 are skipped, and results are merged by 승인번호.
+  // DateType 1 filters by 작성일자.
   async function purchaseInvoicesOfType(taxType: number, query: { startDate: string; endDate: string }) {
     const records: PurchaseTaxInvoice[] = []
     for (let page = 1, pages = 1; page <= pages; page++) {
       const result = await call('GetPeriodTaxInvoicePurchaseList', { TaxType: taxType, DateType: 1, StartDate: query.startDate.replaceAll('-', ''), EndDate: query.endDate.replaceAll('-', ''), CountPerPage: 100, CurrentPage: page })
       const current = Number(result.CurrentPage)
       pages = Number(result.MaxPageNum)
+      if (current === invalidTaxTypeCode && page === 1) return null
       if (Number.isInteger(current) && current < 0) throw await failure('TI', '세금계산서 조회', current)
       if (!Number.isInteger(pages) || pages < 0 || (pages > 0 && current !== page)) throw new BarobillError('바로빌 조회 페이지를 확인할 수 없습니다.')
       if (pages > maxTaxInvoicePages) throw new CardInputError('세금계산서가 너무 많습니다. 조회 기간을 줄여 주세요.')
@@ -148,7 +153,14 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
     async purchaseTaxInvoices(input: Row): Promise<PurchaseTaxInvoicePage> {
       const query = validatePeriod(input)
       const byApproval = new Map<string, PurchaseTaxInvoice>()
-      for (const taxType of [1, 2]) for (const invoice of await purchaseInvoicesOfType(taxType, query)) byApproval.set(invoice.approvalNumber, invoice)
+      let accepted = 0
+      for (const taxType of taxTypeCandidates) {
+        const invoices = await purchaseInvoicesOfType(taxType, query)
+        if (!invoices) continue
+        accepted++
+        for (const invoice of invoices) byApproval.set(invoice.approvalNumber, invoice)
+      }
+      if (!accepted) throw await failure('TI', '세금계산서 조회', invalidTaxTypeCode)
       const records = [...byApproval.values()].sort((a, b) => a.writeDate.localeCompare(b.writeDate) || a.vendor.localeCompare(b.vendor, 'ko-KR'))
       const totalPages = Math.ceil(records.length / 100)
       if (query.page > Math.max(1, totalPages)) throw new CardInputError('조회 페이지를 확인해 주세요.')
