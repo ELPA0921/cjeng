@@ -132,3 +132,14 @@ test('cancellations give tax, supply and service charge the same negative sign a
   assert.equal(cardSupplyAmount(cancel).value, -37400)
   assert.equal(cardSupplyAmount(approval).value, 37400)
 })
+
+test('negative Barobill codes are explained with GetErrString on the same service', async () => {
+  const seen = []
+  const client = createBarobillClient(config, async (url, init) => {
+    seen.push(url)
+    if (init.body.includes('<GetErrString ')) { assert.match(init.body, /<ErrCode>-11010<\/ErrCode>/); assert.doesNotMatch(init.body, /<CorpNum>/); return reply('GetErrString', '홈택스 연동 정보가 없습니다.') }
+    return reply('GetPeriodTaxInvoicePurchaseList', '<CurrentPage>-11010</CurrentPage><MaxPageNum>0</MaxPageNum>')
+  })
+  await assert.rejects(client.purchaseTaxInvoices({ startDate: '2026-10-01', endDate: '2026-10-23' }), { message: '바로빌 세금계산서 조회 오류 (-11010): 홈택스 연동 정보가 없습니다.' })
+  assert.deepEqual([...new Set(seen)], ['https://ws.baroservice.com/TI.asmx'])
+})

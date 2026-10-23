@@ -59,8 +59,16 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
   const token = (value: string) => createHmac('sha256', config.idSecret).update(value).digest('hex')
   async function call(method: Method, fields: Fields): Promise<Row> {
     const service = methodService[method]
+    return object(await send(service, method, { CERTKEY: config.certKey, CorpNum: config.corpNum, [service === 'CARD' ? 'ID' : 'UserID']: config.userId, ...fields }))
+  }
+  // Barobill reports failures as negative codes; ask it for the matching explanation.
+  async function failure(service: 'CARD' | 'TI', what: string, code: number | string) {
+    let detail = ''
+    try { detail = text(await send(service, 'GetErrString', { CERTKEY: config.certKey, ErrCode: Number(code) })).trim() } catch { /* keep the code alone */ }
+    return new BarobillError(`바로빌 ${what} 오류 (${code})${detail ? `: ${detail}` : ''}`)
+  }
+  async function send(service: 'CARD' | 'TI', method: string, params: Fields): Promise<unknown> {
     const endpoint = `https://${config.test ? 'testws' : 'ws'}.baroservice.com/${service}.asmx`
-    const params = { CERTKEY: config.certKey, CorpNum: config.corpNum, [service === 'CARD' ? 'ID' : 'UserID']: config.userId, ...fields }
     const body = `<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><${method} xmlns="${namespace}">${Object.entries(params).map(([key, value]) => `<${key}>${escapeXml(value)}</${key}>`).join('')}</${method}></soap:Body></soap:Envelope>`
     let response: Response
     try { response = await transport(endpoint, { method: 'POST', headers: { 'Content-Type': 'text/xml; charset=utf-8', SOAPAction: `"${namespace}${method}"` }, body, signal: AbortSignal.timeout(20000), redirect: 'error' }) }
@@ -72,7 +80,7 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
     if (soapBody.Fault) throw new BarobillError('바로빌에서 조회 요청을 처리하지 못했습니다.')
     const result = object(soapBody[`${method}Response`])[`${method}Result`]
     if (result === undefined) throw new BarobillError('바로빌 조회 결과가 누락되었습니다.')
-    return object(result)
+    return result
   }
   const safeCard = (card: Row): ConnectedCard => {
     const num = text(card.CardNum)
@@ -82,14 +90,14 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
     const result = await call('GetCardsByAuthID', { CollectTarget: 'APPROVAL', AvailOnly: 1 })
     const cards = list(result.CardInfo)
     const code = text(cards[0]?.CardNum)
-    if (/^-\d+$/.test(code)) throw new BarobillError(`바로빌 카드 목록 조회 오류 (${code}). 인증정보와 카드 조회 권한을 확인해 주세요.`)
+    if (/^-\d+$/.test(code)) throw await failure('CARD', '카드 목록 조회', code)
     if (cards.some(card => !/^\d{12,20}$/.test(text(card.CardNum)))) throw new BarobillError('바로빌 카드번호 형식을 확인할 수 없습니다.')
     return cards.filter(card => text(card.CardType) === 'C')
   }
   async function approvalPage(card: Row, query: { startDate: string; endDate: string }, page: number) {
     const result = await call('GetApprovalHistories', { CardNum: text(card.CardNum), StartDate: query.startDate.replaceAll('-', ''), EndDate: query.endDate.replaceAll('-', ''), CountPerPage: 100, CurrentPage: page, OrderDirection: 1 })
     const current = Number(result.CurrentPage), total = Number(result.MaxIndex), pages = Number(result.MaxPageNum)
-    if (Number.isInteger(current) && current < 0) throw new BarobillError(`바로빌 승인내역 조회 오류 (${current}). 카드 조회 권한과 수집 상태를 확인해 주세요.`)
+    if (Number.isInteger(current) && current < 0) throw await failure('CARD', '승인내역 조회', current)
     if (current !== page || !Number.isInteger(total) || total < 0 || !Number.isInteger(pages) || pages < 0) throw new BarobillError('바로빌 조회 페이지를 확인할 수 없습니다.')
     const cardNumber = text(card.CardNum).slice(-4)
     const records = list(object(result.Histories).CardApprovalHistory).map(row => {
@@ -128,7 +136,7 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
       const result = await call('GetPeriodTaxInvoicePurchaseList', { TaxType: taxType, DateType: 1, StartDate: query.startDate.replaceAll('-', ''), EndDate: query.endDate.replaceAll('-', ''), CountPerPage: 100, CurrentPage: page })
       const current = Number(result.CurrentPage)
       pages = Number(result.MaxPageNum)
-      if (Number.isInteger(current) && current < 0) throw new BarobillError(`바로빌 세금계산서 조회 오류 (${current}). 홈택스 연동 상태와 조회 권한을 확인해 주세요.`)
+      if (Number.isInteger(current) && current < 0) throw await failure('TI', '세금계산서 조회', current)
       if (!Number.isInteger(pages) || pages < 0 || (pages > 0 && current !== page)) throw new BarobillError('바로빌 조회 페이지를 확인할 수 없습니다.')
       if (pages > maxTaxInvoicePages) throw new CardInputError('세금계산서가 너무 많습니다. 조회 기간을 줄여 주세요.')
       records.push(...list(object(result.SimpleTaxInvoiceExList).SimpleTaxInvoiceEx).map(purchaseInvoice))
