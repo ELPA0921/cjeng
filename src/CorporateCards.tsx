@@ -85,7 +85,7 @@ export default function CorporateCards() {
         <div className="table-wrap card-results-scroll" role="region" aria-label="법인카드 승인내역" tabIndex={0}>
           <table className="card-results-table"><thead><tr>
             <th className="card-check"><input type="checkbox" aria-label="이 페이지 전체 선택" disabled={pageRows.length === 0} checked={pageRows.length > 0 && pageSelected === pageRows.length} ref={input => { if (input) input.indeterminate = pageSelected > 0 && pageSelected < pageRows.length }} onChange={event => togglePage(event.target.checked)} /></th>
-            <th>수주번호</th><th>일자 ↑</th><th>거래처</th><th>공급가액</th><th>부가세</th><th>금액</th><th>카드번호</th><th>회계반영</th>
+            <th>수주번호</th><th>일자 ↑</th><th>거래처</th><th>내용</th><th>공급가액</th><th>부가세</th><th>금액</th><th>카드번호</th><th>회계반영</th>
           </tr></thead>
             <tbody>{result.records.map(row => {
               const supply = cardSupplyAmount(row)
@@ -93,14 +93,14 @@ export default function CorporateCards() {
               return <tr key={row.id} className={selectedIds.has(row.id) ? 'card-row-selected' : undefined}>
                 <td className="card-check"><input type="checkbox" aria-label={`${row.dateTime} ${row.store} 선택`} checked={selectedIds.has(row.id)} onChange={event => toggleRow(row.id, event.target.checked)} /></td>
                 <td>-</td>
-                <td className="card-date" data-time={row.dateTime.slice(11, 16)}>{row.dateTime.slice(0, 10)}</td><td>{row.store || '-'}</td>
+                <td className="card-date" data-time={row.dateTime.slice(11, 16)}>{row.dateTime.slice(0, 10)}</td><td>{row.store || '-'}</td><td>-</td>
                 <td>{money(supply.value)}</td><td>{money(row.vatAmount)}</td>
                 <td><span className={cancelled ? 'card-cancelled' : undefined} title={row.approvalType || undefined}>{money(row.amount)}</span></td>
                 <td>{cardLast4 || '-'}</td>
                 <td><span className="card-accounting">미반영</span></td>
               </tr>
             })}
-              {result.records.length === 0 && <tr><td colSpan={9}>해당 기간에 수집된 승인내역이 없습니다.</td></tr>}
+              {result.records.length === 0 && <tr><td colSpan={10}>해당 기간에 수집된 승인내역이 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>
