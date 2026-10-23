@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { ConnectedCard, CardApproval, CardApprovalPage } from './cardTypes'
 import { cardSupplyAmount } from './cardAmounts'
 import { cardPostingSource } from './cardAccounting'
-import { usePosting, type PostingProps } from './usePosting'
+import { usePosting, type PostingProps, type PostingView } from './usePosting'
 import './CorporateCards.css'
 
 async function request<T>(input: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
@@ -11,7 +11,12 @@ async function request<T>(input: Record<string, unknown>, signal?: AbortSignal):
   if (!response.ok) throw new Error(body.error || '법인카드 내역을 불러올 수 없습니다.')
   return body as T
 }
-const cardSortValue = (row: CardApproval, key: string) => key === 'supplyAmount' ? cardSupplyAmount(row).value : (row as Record<string, unknown>)[key] as string | number | null
+const cardView: PostingView<CardApproval> = {
+  toSource: cardPostingSource,
+  sortValue: (row, key) => key === 'supplyAmount' ? cardSupplyAmount(row).value : (row as Record<string, unknown>)[key] as string | number | null,
+  defaultSort: 'dateTime',
+  searchText: row => [row.dateTime, row.store, cardSupplyAmount(row).value, row.vatAmount, row.amount, row.cardNumber, row.approvalType, row.approvalNumber],
+}
 const money = (value: number | null) => value === null ? '-' : value.toLocaleString('ko-KR', { maximumFractionDigits: 4 })
 
 export default function CorporateCards(props: PostingProps) {
@@ -27,7 +32,7 @@ export default function CorporateCards(props: PostingProps) {
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
   const activeRequest = useRef<AbortController | null>(null)
-  const posting = usePosting(result?.records ?? [], cardPostingSource, props, cardSortValue, 'dateTime')
+  const posting = usePosting(result?.records ?? [], props, cardView)
 
   useEffect(() => {
     const controller = new AbortController()

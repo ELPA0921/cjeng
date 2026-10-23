@@ -76,3 +76,9 @@
 .tax-query-form label:first-child { flex: 0 1 auto; min-width: 0; }
 .tax-modified { margin-left: 6px; padding: 1px 5px; border-radius: 4px; color: #94570f; background: #fdf0dc; font-size: 10px; font-weight: 600; }
 .card-results-table td.tax-item { color: var(--text-muted); }
+.card-search { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
+.card-search input { width: min(360px, 100%); min-height: 38px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--text); font: inherit; font-size: 13px; }
+.card-search span { color: var(--text-muted); font-size: 12px; }
+/* The tax invoice table has no card number column, so its status column is the ninth. */
+.tax-results-table { min-width: 1100px; }
+.tax-results-table th:nth-child(9) { width: 112px; }

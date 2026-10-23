@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { PurchaseTaxInvoice, PurchaseTaxInvoicePage } from './taxInvoiceTypes'
 import type { PostingSource } from './cardAccounting'
-import { usePosting, type PostingProps } from './usePosting'
+import { usePosting, type PostingProps, type PostingView } from './usePosting'
 import './CorporateCards.css'
 
 async function request<T>(input: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
@@ -11,8 +11,13 @@ async function request<T>(input: Record<string, unknown>, signal?: AbortSignal):
   return body as T
 }
 const money = (value: number | null) => value === null ? '-' : value.toLocaleString('ko-KR', { maximumFractionDigits: 4 })
-const invoiceSortValue = (row: PurchaseTaxInvoice, key: string) => key === 'memo' ? row.itemName : (row as Record<string, unknown>)[key] as string | number | null
-const invoiceSource = (row: PurchaseTaxInvoice): PostingSource => ({ id: row.id, date: row.writeDate, vendor: row.vendor, supplyAmount: row.supplyAmount, vatAmount: row.vatAmount, amount: row.amount, kind: '전자세금계산서', cardNumber: '', defaultMemo: row.itemName })
+const invoiceView: PostingView<PurchaseTaxInvoice> = {
+  toSource: (row): PostingSource => ({ id: row.id, date: row.writeDate, vendor: row.vendor, supplyAmount: row.supplyAmount, vatAmount: row.vatAmount, amount: row.amount, kind: '전자세금계산서', cardNumber: '', defaultMemo: row.itemName }),
+  sortValue: (row, key) => key === 'memo' ? row.itemName : (row as Record<string, unknown>)[key] as string | number | null,
+  defaultSort: 'writeDate',
+  // 사업자번호 and 승인번호 are not shown but still searchable.
+  searchText: row => [row.writeDate, row.vendor, row.itemName, row.supplyAmount, row.vatAmount, row.amount, row.vendorCorpNum, row.approvalNumber, row.modified ? '수정' : ''],
+}
 
 export default function TaxInvoices(props: PostingProps) {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
@@ -22,7 +27,7 @@ export default function TaxInvoices(props: PostingProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const activeRequest = useRef<AbortController | null>(null)
-  const posting = usePosting(result?.records ?? [], invoiceSource, props, invoiceSortValue, 'writeDate')
+  const posting = usePosting(result?.records ?? [], props, invoiceView)
   useEffect(() => () => activeRequest.current?.abort(), [])
 
   async function query(page = 1) {
@@ -56,9 +61,9 @@ export default function TaxInvoices(props: PostingProps) {
         <div className="card-results-heading"><strong>조회 결과 {result.total.toLocaleString('ko-KR')}건{posting.selectedIds.size > 0 && ` · ${posting.selectedIds.size.toLocaleString('ko-KR')}건 선택`}</strong><span>{result.startDate} ~ {result.endDate}</span></div>
         {posting.toolbar}
         <div className="table-wrap card-results-scroll" role="region" aria-label="매입 세금계산서" tabIndex={0}>
-          <table className="card-results-table"><thead><tr>
+          <table className="card-results-table tax-results-table"><thead><tr>
             <th className="card-check">{posting.selectAll}</th>
-            {([['orderNo', '수주번호'], ['writeDate', '작성일자'], ['vendor', '거래처'], ['memo', '내용'], ['supplyAmount', '공급가액'], ['vatAmount', '부가세'], ['amount', '합계'], ['vendorCorpNum', '사업자번호'], ['status', '회계반영']] as const).map(([key, label]) => <th key={key}>{posting.sortHeader(key, label)}</th>)}
+            {([['orderNo', '수주번호'], ['writeDate', '작성일자'], ['vendor', '거래처'], ['memo', '내용'], ['supplyAmount', '공급가액'], ['vatAmount', '부가세'], ['amount', '합계'], ['status', '회계반영']] as const).map(([key, label]) => <th key={key}>{posting.sortHeader(key, label)}</th>)}
           </tr></thead>
             <tbody>{posting.pageRows.map(row => {
               const entry = posting.entries.get(row.id)
@@ -69,11 +74,10 @@ export default function TaxInvoices(props: PostingProps) {
                 <td>{row.vendor || '-'}{row.modified && <small className="tax-modified" title="수정 세금계산서">수정</small>}</td>
                 <td className={entry?.memo ? undefined : 'tax-item'}>{entry?.memo || row.itemName || '-'}</td>
                 <td>{money(row.supplyAmount)}</td><td>{money(row.vatAmount)}</td><td>{money(row.amount)}</td>
-                <td>{row.vendorCorpNum || '-'}</td>
                 <td>{posting.statusChip(row)}</td>
               </tr>
             })}
-              {posting.pageRows.length === 0 && <tr><td colSpan={10}>{posting.emptyMessage('해당 기간에 수집된 매입 세금계산서가 없습니다.')}</td></tr>}
+              {posting.pageRows.length === 0 && <tr><td colSpan={9}>{posting.emptyMessage('해당 기간에 수집된 매입 세금계산서가 없습니다.')}</td></tr>}
             </tbody>
           </table>
         </div>

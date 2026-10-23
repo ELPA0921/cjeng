@@ -20,33 +20,50 @@ export type PostingProps = {
   onCreateOrder: (onCreated: (order: Order) => void) => void
 }
 
+// How a list describes its rows: what to post, how to sort a column, and what text search sees.
+export type PostingView<T> = {
+  toSource: (row: T) => PostingSource
+  sortValue: (row: T, key: string) => SortValue
+  defaultSort: string
+  searchText: (row: T) => (string | number | null | undefined)[]
+}
+const normalize = (value: string) => value.toLowerCase().replace(/[\s,]/g, '')
+
 /**
- * Status tabs, row selection and the 회계반영 / 강제회계반영 / 수정 actions shared by
+ * Status tabs, search, row selection and the 회계반영 / 강제회계반영 / 수정 actions shared by
  * every Barobill list (법인카드, 전자세금계산서). Rows are filtered and posted in place.
- */
-/**
  * Column sorting: 'orderNo', 'memo' and 'status' read the saved posting; other keys come from
- * sortValue. Blank values always sort last, and sorting applies to the current page.
+ * sortValue. Blank values always sort last. Search, tabs and sorting apply to the current page.
  */
-export function usePosting<T extends { id: string }>(rows: T[], toSource: (row: T) => PostingSource, { orders, expenses, cardAccounting, onSave, onCreateOrder }: PostingProps, sortValue: (row: T, key: string) => SortValue, defaultSort: string) {
+export function usePosting<T extends { id: string }>(rows: T[], { orders, expenses, cardAccounting, onSave, onCreateOrder }: PostingProps, { toSource, sortValue, defaultSort, searchText }: PostingView<T>) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [modal, setModal] = useState<{ mode: 'post' | 'edit'; rows: PostingSource[] } | null>(null)
   const [notice, setNotice] = useState('')
   const [filter, setFilter] = useState<Filter>('미반영')
   const [savingForced, setSavingForced] = useState(false)
   const [sort, setSort] = useState({ key: defaultSort, direction: 'asc' as 'asc' | 'desc' })
+  const [search, setSearch] = useState('')
   const skippedNote = useRef('')
   const entries = new Map(cardAccounting.map(entry => [entry.id, entry]))
   const statusOf = (row: T) => entries.get(row.id)?.status ?? '미반영'
   const valueOf = (row: T, key: string): SortValue => key === 'orderNo' ? entries.get(row.id)?.orderNo : key === 'status' ? statusOrder.indexOf(statusOf(row)) : key === 'memo' ? entries.get(row.id)?.memo || sortValue(row, key) : sortValue(row, key)
-  const pageRows = (filter === '전체' ? rows : rows.filter(row => statusOf(row) === filter)).map((row, index) => ({ row, index, value: valueOf(row, sort.key) }))
+  // Every word must appear somewhere in the row; spaces and thousands separators are ignored.
+  const words = search.split(/\s+/).map(normalize).filter(Boolean)
+  const matches = (row: T) => {
+    if (!words.length) return true
+    const entry = entries.get(row.id)
+    const haystack = normalize([...searchText(row), entry?.orderNo, entry?.memo, statusOf(row)].filter(value => value !== null && value !== undefined).join(' '))
+    return words.every(word => haystack.includes(word))
+  }
+  const found = words.length ? rows.filter(matches) : rows
+  const pageRows = (filter === '전체' ? found : found.filter(row => statusOf(row) === filter)).map((row, index) => ({ row, index, value: valueOf(row, sort.key) }))
     .sort((a, b) => isBlank(a.value) !== isBlank(b.value) ? (isBlank(a.value) ? 1 : -1) : (sort.direction === 'asc' ? 1 : -1) * compareValues(a.value, b.value) || a.index - b.index)
     .map(item => item.row)
-  const filterCount = (value: Filter) => value === '전체' ? rows.length : rows.filter(row => statusOf(row) === value).length
+  const filterCount = (value: Filter) => value === '전체' ? found.length : found.filter(row => statusOf(row) === value).length
   const pageSelected = pageRows.filter(row => selectedIds.has(row.id)).length
   const selectedRows = pageRows.filter(row => selectedIds.has(row.id))
 
-  function reset() { setSelectedIds(new Set()); setNotice('') }
+  function reset() { setSelectedIds(new Set()); setNotice(''); setSearch('') }
   function toggleRow(id: string, checked: boolean) {
     setSelectedIds(current => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next })
   }
@@ -93,6 +110,10 @@ export function usePosting<T extends { id: string }>(rows: T[], toSource: (row: 
   }
 
   const toolbar = <>
+    <div className="card-search">
+      <input type="search" aria-label="조회 내역 검색" placeholder="거래처, 내용, 수주번호, 금액, 날짜 검색" value={search} onChange={event => { setSearch(event.target.value); setSelectedIds(new Set()) }} />
+      {words.length > 0 && <span role="status">{found.length.toLocaleString('ko-KR')}건 일치</span>}
+    </div>
     <div className="card-toolbar">
       <div className="card-filter-tabs" role="tablist" aria-label="회계반영 상태로 보기">
         {filters.map(value => <button key={value} type="button" role="tab" aria-selected={filter === value} className={`card-filter-tab ${statusClass[value] ?? ''}`} onClick={() => { setFilter(value); setSelectedIds(new Set()) }}>
@@ -114,7 +135,7 @@ export function usePosting<T extends { id: string }>(rows: T[], toSource: (row: 
   const sortHeader = (key: string, label: string) => <button className="sort-button" type="button" onClick={() => setSort(current => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }))}>
     {label}{sort.key === key ? (sort.direction === 'asc' ? ' ↑' : ' ↓') : ''}
   </button>
-  const emptyMessage = (none: string) => rows.length === 0 ? none : `이 페이지에 ${filter} 항목이 없습니다.`
+  const emptyMessage = (none: string) => rows.length === 0 ? none : words.length ? `검색어와 일치하는 ${filter === '전체' ? '' : `${filter} `}항목이 없습니다.` : `이 페이지에 ${filter} 항목이 없습니다.`
 
   return { entries, pageRows, selectedIds, setFilter, reset, toolbar, selectAll, rowBox, statusChip, sortHeader, modal: modalElement, emptyMessage }
 }
