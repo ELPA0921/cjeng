@@ -19,3 +19,17 @@ test('compact data still rejects invalid dates, types, duplicate IDs and malform
   assert.throws(() => validateWorkspace(packWorkspace({...data,workLogs:[log,log]})))
   assert.throws(() => validateWorkspace({...data,workLogs:[['incomplete']]}))
 })
+
+test('compact expenses round-trip required and optional fields and stay much smaller', () => {
+  const full = { id:'e1', projectId:'admin-2026', date:'2026-10-02', kind:'법인카드', vendor:'오피스디포', memo:'', amount:33000, supplyAmount:30000, vatAmount:3000, cardNumber:'3888', category:'사무' }
+  const bare = { id:'e2', projectId:'o-1', date:'2026-10-03', kind:'기타', vendor:'현금', memo:'메모, "인용"', amount:-500 }
+  const withCard = { id:'e3', projectId:'o-1', date:'2026-10-04', kind:'개인카드', vendor:'식당', memo:'', amount:1000, cardNumber:'김해운' }
+  const withExpenses = { ...data, expenses:[full, bare, withCard] }
+  const packed = packWorkspace(withExpenses)
+  assert.deepEqual(packed.expenses[1], ['e2','o-1','2026-10-03','기타','현금','메모, "인용"',-500])
+  assert.deepEqual(validateWorkspace(packed), withExpenses)
+  assert.deepEqual(validateWorkspace(withExpenses), withExpenses)
+  assert.ok(JSON.stringify(packed.expenses).length < JSON.stringify(withExpenses.expenses).length * 0.65)
+  assert.throws(() => validateWorkspace({ ...data, expenses:[['e1','o-1','2026-10-01']] }), /지출내역 저장 형식/)
+  assert.throws(() => validateWorkspace(packWorkspace({ ...data, expenses:[{ ...bare, date:'2026-02-30' }] })))
+})
