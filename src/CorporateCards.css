@@ -28,9 +28,19 @@
 .card-accounting { display: inline-block; padding: 3px 8px; border: 1px solid transparent; border-radius: 999px; color: #6b7570; background: #f1f3f2; font-size: 11px; font-weight: 600; }
 .card-accounting.is-posted { color: #1f6b46; background: #e3f3e9; border-color: #b9dfc8; }
 .card-accounting.is-forced { color: #94570f; background: #fdf0dc; border-color: #f0cf9c; }
-.card-accounting-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.card-toolbar { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+.card-accounting-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; padding-bottom: 8px; }
 .card-accounting-actions button { min-height: 36px; }
-.card-accounting-actions span { color: var(--text-muted); font-size: 12px; }
+.card-accounting-notice { margin: -4px 0 12px; color: var(--text-muted); font-size: 12px; text-align: right; }
+/* Bookmark tabs sit on the toolbar's baseline so they read as views, not actions. */
+.card-filter-tabs { display: flex; align-items: flex-end; gap: 4px; margin-bottom: -1px; }
+.card-filter-tab { --tab-accent: #6b7570; display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 7px 14px 8px; border: 1px solid var(--line); border-bottom-color: var(--line); border-radius: 10px 10px 0 0; background: #f5f7f6; color: var(--text-muted); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.card-filter-tab span { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: #e8ecea; color: #6b7570; font-size: 11px; text-align: center; font-variant-numeric: tabular-nums; }
+.card-filter-tab:hover { color: var(--text); background: #eef3f0; }
+.card-filter-tab.is-posted { --tab-accent: #1f6b46; }
+.card-filter-tab.is-forced { --tab-accent: #94570f; }
+.card-filter-tab[aria-selected='true'] { position: relative; min-height: 40px; border-color: var(--line); border-top: 3px solid var(--tab-accent); border-bottom-color: white; background: white; color: var(--tab-accent); }
+.card-filter-tab[aria-selected='true'] span { background: var(--tab-accent); color: white; }
 .card-force-button:not(:disabled) { color: #94570f; border-color: #f0cf9c; }
 .card-accounting-modal { width: min(1040px, 100%); }
 .card-accounting-rows { margin: 16px 0; max-height: 50vh; overflow: auto; }
