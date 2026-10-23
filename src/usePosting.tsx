@@ -7,6 +7,10 @@ import CardAccountingModal from './CardAccountingModal'
 const statusClass: Record<string, string> = { 회계반영: 'is-posted', 강제회계반영: 'is-forced' }
 const filters = ['전체', '미반영', '회계반영', '강제회계반영'] as const
 type Filter = typeof filters[number]
+type SortValue = string | number | null | undefined
+const compareValues = (a: SortValue, b: SortValue) => typeof a === 'number' && typeof b === 'number' ? a - b : String(a ?? '').localeCompare(String(b ?? ''), 'ko-KR', { numeric: true })
+const statusOrder = ['미반영', '회계반영', '강제회계반영']
+const isBlank = (value: SortValue) => value === null || value === undefined || value === ''
 
 export type PostingProps = {
   orders: Order[]
@@ -20,16 +24,24 @@ export type PostingProps = {
  * Status tabs, row selection and the 회계반영 / 강제회계반영 / 수정 actions shared by
  * every Barobill list (법인카드, 전자세금계산서). Rows are filtered and posted in place.
  */
-export function usePosting<T extends { id: string }>(rows: T[], toSource: (row: T) => PostingSource, { orders, expenses, cardAccounting, onSave, onCreateOrder }: PostingProps) {
+/**
+ * Column sorting: 'orderNo', 'memo' and 'status' read the saved posting; other keys come from
+ * sortValue. Blank values always sort last, and sorting applies to the current page.
+ */
+export function usePosting<T extends { id: string }>(rows: T[], toSource: (row: T) => PostingSource, { orders, expenses, cardAccounting, onSave, onCreateOrder }: PostingProps, sortValue: (row: T, key: string) => SortValue, defaultSort: string) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [modal, setModal] = useState<{ mode: 'post' | 'edit'; rows: PostingSource[] } | null>(null)
   const [notice, setNotice] = useState('')
   const [filter, setFilter] = useState<Filter>('미반영')
   const [savingForced, setSavingForced] = useState(false)
+  const [sort, setSort] = useState({ key: defaultSort, direction: 'asc' as 'asc' | 'desc' })
   const skippedNote = useRef('')
   const entries = new Map(cardAccounting.map(entry => [entry.id, entry]))
   const statusOf = (row: T) => entries.get(row.id)?.status ?? '미반영'
-  const pageRows = filter === '전체' ? rows : rows.filter(row => statusOf(row) === filter)
+  const valueOf = (row: T, key: string): SortValue => key === 'orderNo' ? entries.get(row.id)?.orderNo : key === 'status' ? statusOrder.indexOf(statusOf(row)) : key === 'memo' ? entries.get(row.id)?.memo || sortValue(row, key) : sortValue(row, key)
+  const pageRows = (filter === '전체' ? rows : rows.filter(row => statusOf(row) === filter)).map((row, index) => ({ row, index, value: valueOf(row, sort.key) }))
+    .sort((a, b) => isBlank(a.value) !== isBlank(b.value) ? (isBlank(a.value) ? 1 : -1) : (sort.direction === 'asc' ? 1 : -1) * compareValues(a.value, b.value) || a.index - b.index)
+    .map(item => item.row)
   const filterCount = (value: Filter) => value === '전체' ? rows.length : rows.filter(row => statusOf(row) === value).length
   const pageSelected = pageRows.filter(row => selectedIds.has(row.id)).length
   const selectedRows = pageRows.filter(row => selectedIds.has(row.id))
@@ -99,7 +111,10 @@ export function usePosting<T extends { id: string }>(rows: T[], toSource: (row: 
   const rowBox = (row: T, label: string) => <input type="checkbox" aria-label={`${label} 선택`} checked={selectedIds.has(row.id)} onChange={event => toggleRow(row.id, event.target.checked)} />
   const statusChip = (row: T) => { const status = statusOf(row); return <span className={`card-accounting ${statusClass[status] ?? ''}`}>{status}</span> }
   const modalElement = modal && <CardAccountingModal mode={modal.mode} rows={modal.rows} entries={entries} orders={orders} onSubmit={submitModal} onClose={() => setModal(null)} onCreateOrder={onCreateOrder} />
+  const sortHeader = (key: string, label: string) => <button className="sort-button" type="button" onClick={() => setSort(current => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }))}>
+    {label}{sort.key === key ? (sort.direction === 'asc' ? ' ↑' : ' ↓') : ''}
+  </button>
   const emptyMessage = (none: string) => rows.length === 0 ? none : `이 페이지에 ${filter} 항목이 없습니다.`
 
-  return { entries, pageRows, selectedIds, setFilter, reset, toolbar, selectAll, rowBox, statusChip, modal: modalElement, emptyMessage }
+  return { entries, pageRows, selectedIds, setFilter, reset, toolbar, selectAll, rowBox, statusChip, sortHeader, modal: modalElement, emptyMessage }
 }

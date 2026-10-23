@@ -11,6 +11,7 @@ async function request<T>(input: Record<string, unknown>, signal?: AbortSignal):
   return body as T
 }
 const money = (value: number | null) => value === null ? '-' : value.toLocaleString('ko-KR', { maximumFractionDigits: 4 })
+const invoiceSortValue = (row: PurchaseTaxInvoice, key: string) => key === 'memo' ? row.itemName : (row as Record<string, unknown>)[key] as string | number | null
 const invoiceSource = (row: PurchaseTaxInvoice): PostingSource => ({ id: row.id, date: row.writeDate, vendor: row.vendor, supplyAmount: row.supplyAmount, vatAmount: row.vatAmount, amount: row.amount, kind: '전자세금계산서', cardNumber: '', defaultMemo: row.itemName })
 
 export default function TaxInvoices(props: PostingProps) {
@@ -21,7 +22,7 @@ export default function TaxInvoices(props: PostingProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const activeRequest = useRef<AbortController | null>(null)
-  const posting = usePosting(result?.records ?? [], invoiceSource, props)
+  const posting = usePosting(result?.records ?? [], invoiceSource, props, invoiceSortValue, 'writeDate')
   useEffect(() => () => activeRequest.current?.abort(), [])
 
   async function query(page = 1) {
@@ -57,7 +58,7 @@ export default function TaxInvoices(props: PostingProps) {
         <div className="table-wrap card-results-scroll" role="region" aria-label="매입 세금계산서" tabIndex={0}>
           <table className="card-results-table"><thead><tr>
             <th className="card-check">{posting.selectAll}</th>
-            <th>수주번호</th><th>작성일자 ↑</th><th>거래처</th><th>내용</th><th>공급가액</th><th>부가세</th><th>합계</th><th>사업자번호</th><th>회계반영</th>
+            {([['orderNo', '수주번호'], ['writeDate', '작성일자'], ['vendor', '거래처'], ['memo', '내용'], ['supplyAmount', '공급가액'], ['vatAmount', '부가세'], ['amount', '합계'], ['vendorCorpNum', '사업자번호'], ['status', '회계반영']] as const).map(([key, label]) => <th key={key}>{posting.sortHeader(key, label)}</th>)}
           </tr></thead>
             <tbody>{posting.pageRows.map(row => {
               const entry = posting.entries.get(row.id)

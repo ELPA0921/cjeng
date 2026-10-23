@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import type { ConnectedCard, CardApprovalPage } from './cardTypes'
+import type { ConnectedCard, CardApproval, CardApprovalPage } from './cardTypes'
 import { cardSupplyAmount } from './cardAmounts'
 import { cardPostingSource } from './cardAccounting'
 import { usePosting, type PostingProps } from './usePosting'
@@ -11,6 +11,7 @@ async function request<T>(input: Record<string, unknown>, signal?: AbortSignal):
   if (!response.ok) throw new Error(body.error || '법인카드 내역을 불러올 수 없습니다.')
   return body as T
 }
+const cardSortValue = (row: CardApproval, key: string) => key === 'supplyAmount' ? cardSupplyAmount(row).value : (row as Record<string, unknown>)[key] as string | number | null
 const money = (value: number | null) => value === null ? '-' : value.toLocaleString('ko-KR', { maximumFractionDigits: 4 })
 
 export default function CorporateCards(props: PostingProps) {
@@ -26,7 +27,7 @@ export default function CorporateCards(props: PostingProps) {
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
   const activeRequest = useRef<AbortController | null>(null)
-  const posting = usePosting(result?.records ?? [], cardPostingSource, props)
+  const posting = usePosting(result?.records ?? [], cardPostingSource, props, cardSortValue, 'dateTime')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -80,7 +81,7 @@ export default function CorporateCards(props: PostingProps) {
         <div className="table-wrap card-results-scroll" role="region" aria-label="법인카드 승인내역" tabIndex={0}>
           <table className="card-results-table"><thead><tr>
             <th className="card-check">{posting.selectAll}</th>
-            <th>수주번호</th><th>일자 ↑</th><th>거래처</th><th>내용</th><th>공급가액</th><th>부가세</th><th>금액</th><th>카드번호</th><th>회계반영</th>
+            {([['orderNo', '수주번호'], ['dateTime', '일자'], ['store', '거래처'], ['memo', '내용'], ['supplyAmount', '공급가액'], ['vatAmount', '부가세'], ['amount', '금액'], ['cardNumber', '카드번호'], ['status', '회계반영']] as const).map(([key, label]) => <th key={key}>{posting.sortHeader(key, label)}</th>)}
           </tr></thead>
             <tbody>{posting.pageRows.map(row => {
               const supply = cardSupplyAmount(row)
