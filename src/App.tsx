@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { parseNavigationHash, type NavigationRoute } from './navigation'
 import { useBrowserNavigation } from './useBrowserNavigation'
 import './App.css'
@@ -7,7 +7,7 @@ import { getWorkCategory, workCategories, workProjectLabel, type WorkCategory } 
 import DeliveryPerformance from './DeliveryPerformance'
 import CorporateCards from './CorporateCards'
 import type { Order, SharedOrderStore } from './orderTypes'
-import type { Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
+import type { CardAccounting, Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
 import { defaultOrders, defaultExpenses, defaultWorkLogs, defaultPurchaseOrders } from './sampleData'
 import { remapProjectReferences, sharedProjectIdMap } from './orderMigration'
 import { defaultOrderStatus, getOrderStatus, importedOrderStatus, isOrderStatus, orderStatuses, type OrderStatus } from './orderStatus'
@@ -694,6 +694,9 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   const [localWorkLogs, setLocalWorkLogs] = useState(() =>
     remapProjectReferences(loadStoredData('cost-app-worklogs-v2', defaultWorkLogs), migratedProjectIds),
   )
+  const [localCardAccounting, setLocalCardAccounting] = useState<CardAccounting[]>(() =>
+    loadStoredData('cost-app-card-accounting', []),
+  )
   const inactiveVendorKeys = workspaceStore?.data.inactiveVendorKeys ?? localInactiveVendorKeys
   const deletedVendorKeys = workspaceStore?.data.deletedVendorKeys ?? localDeletedVendorKeys
   const vendorEdits = workspaceStore?.data.vendorEdits ?? localVendorEdits
@@ -701,6 +704,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   const expenses = workspaceStore?.data.expenses ?? localExpenses
   const workLogs = workspaceStore?.data.workLogs ?? localWorkLogs
   const purchaseOrders = workspaceStore?.data.purchases ?? defaultPurchaseOrders
+  const cardAccounting = workspaceStore?.data.cardAccounting ?? localCardAccounting
   const [expenseEditRevision, setExpenseEditRevision] = useState<string | undefined>()
   const [vendorEditRevision, setVendorEditRevision] = useState<string | undefined>()
   async function updateWorkspace(patch: Partial<WorkspaceData>, revision=workspaceStore?.revision) {
@@ -711,6 +715,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     if(patch.deletedVendorKeys)setLocalDeletedVendorKeys(patch.deletedVendorKeys)
     if(patch.vendorEdits)setLocalVendorEdits(patch.vendorEdits)
     if(patch.customVendorContacts)setLocalCustomVendorContacts(patch.customVendorContacts)
+    if(patch.cardAccounting){setLocalCardAccounting(patch.cardAccounting);localStorage.setItem('cost-app-card-accounting',JSON.stringify(patch.cardAccounting))}
     return true
   }
   async function setExpenses(update:(current:Expense[])=>Expense[], revision=workspaceStore?.revision) {
@@ -1699,9 +1704,18 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     setIsOrderModalOpen(true)
   }
 
+  // Set while the order modal is opened from another screen that wants the new order back.
+  const orderCreatedHandler = useRef<((order: Order) => void) | null>(null)
+
   function closeOrderModal() {
+    orderCreatedHandler.current = null
     setEditingOrderId(null)
     setIsOrderModalOpen(false)
+  }
+
+  function openNewOrderModalFor(onCreated: (order: Order) => void) {
+    openNewOrderModal()
+    orderCreatedHandler.current = onCreated
   }
 
   function openOrderEditor() {
@@ -1817,6 +1831,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
       orderEditRevision,
     )
     if (!saved) return
+    const onCreated = orderCreatedHandler.current
+    orderCreatedHandler.current = null
     setOrderYear(orderForm.year)
     setSelectedProjectId(newOrder.id)
     setExpenseForm((current) => ({ ...current, projectId: newOrder.id }))
@@ -1835,7 +1851,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
       status: '',
     }))
     setIsOrderModalOpen(false)
-    navigateTo('orders')
+    if (onCreated) onCreated(newOrder)
+    else navigateTo('orders')
   }
 
   function openExpenseEditor() {
@@ -2295,7 +2312,13 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           </div>
         </header>
 
-        {view === 'corporateCards' && <CorporateCards />}
+        {view === 'corporateCards' && <CorporateCards
+            orders={orders}
+            expenses={expenses}
+            cardAccounting={cardAccounting}
+            onSave={patch => updateWorkspace(patch)}
+            onCreateOrder={openNewOrderModalFor}
+          />}
         {view === 'taxInvoices' && (
           <section className="content-grid single">
             <div className="panel full expense-source-panel">

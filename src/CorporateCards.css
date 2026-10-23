@@ -19,12 +19,43 @@
 .card-results-table th:nth-child(4) { width: 150px; }
 .card-results-table th:nth-child(n+6):nth-child(-n+8) { width: 128px; }
 .card-results-table td:nth-child(n+6):nth-child(-n+8) { font-variant-numeric: tabular-nums; }
-.card-results-table th:nth-child(9), .card-results-table th:nth-child(10) { width: 80px; }
+.card-results-table th:nth-child(9) { width: 80px; }
+.card-results-table th:nth-child(10) { width: 112px; }
 .card-results-table .card-check { width: 40px; }
 .card-results-table .card-check input { width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; vertical-align: middle; cursor: pointer; }
 .card-results-table .card-date { position: relative; }
 .card-results-table .card-date:hover::after { content: attr(data-time); position: absolute; left: calc(100% - 14px); top: 50%; transform: translateY(-50%); z-index: 2; padding: 3px 7px; border-radius: 6px; background: #263241; color: white; font-size: 11px; line-height: 1.4; pointer-events: none; }
-.card-accounting { padding: 3px 8px; border-radius: 999px; color: var(--text-muted); background: #f1f3f2; font-size: 11px; }
+.card-accounting { display: inline-block; padding: 3px 8px; border: 1px solid transparent; border-radius: 999px; color: #6b7570; background: #f1f3f2; font-size: 11px; font-weight: 600; }
+.card-accounting.is-posted { color: #1f6b46; background: #e3f3e9; border-color: #b9dfc8; }
+.card-accounting.is-forced { color: #94570f; background: #fdf0dc; border-color: #f0cf9c; }
+.card-accounting-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.card-accounting-actions button { min-height: 36px; }
+.card-accounting-actions span { color: var(--text-muted); font-size: 12px; }
+.card-force-button:not(:disabled) { color: #94570f; border-color: #f0cf9c; }
+.card-accounting-modal { width: min(1040px, 100%); }
+.card-accounting-rows { margin: 16px 0; max-height: 50vh; overflow: auto; }
+.card-accounting-rows table { min-width: 860px; }
+.card-accounting-rows th, .card-accounting-rows td { padding: 8px 10px; white-space: nowrap; vertical-align: top; }
+.card-accounting-rows td { line-height: 36px; }
+.card-accounting-rows .card-accounting-store { white-space: normal; line-height: 1.5; padding-top: 16px; min-width: 120px; }
+.card-accounting-rows .card-accounting-amount { text-align: right; font-variant-numeric: tabular-nums; }
+.card-accounting-rows input, .card-accounting-rows select { width: 100%; min-height: 36px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--text); font: inherit; font-size: 13px; line-height: 1.4; }
+.card-accounting-rows input:disabled { background: #f5f6f5; }
+.card-accounting-rows input[aria-invalid='true'] { border-color: #d4796a; background: #fff6f4; }
+.card-order-field { display: flex; gap: 6px; min-width: 150px; }
+.card-order-field input { min-width: 0; }
+.card-order-search { flex: none; display: grid; place-items: center; width: 36px; min-height: 36px; padding: 0; }
+.card-order-error { display: block; margin-top: 4px; color: #ad4a39; font-size: 11px; font-weight: 600; line-height: 1.4; }
+.card-accounting-modal .modal-actions { gap: 8px; }
+.card-order-picker-backdrop { z-index: 11; }
+.card-order-picker { width: min(560px, 100%); }
+.card-order-picker-search { width: 100%; min-height: 40px; margin: 14px 0 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.card-order-picker-list { display: grid; gap: 4px; max-height: 50vh; overflow: auto; }
+.card-order-picker-list button { display: grid; grid-template-columns: 90px 1fr; gap: 2px 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.card-order-picker-list button:hover { border-color: #9ccbb1; background: #f0f9f4; }
+.card-order-picker-list strong { grid-row: span 2; align-self: center; font-variant-numeric: tabular-nums; }
+.card-order-picker-list small { color: var(--text-muted); }
+.card-order-picker-list p { color: var(--text-muted); font-size: 13px; }
 .card-row-selected td { background: #f3f8f5; }
 .card-cancelled { color: #ad4a39; font-weight: 700; }
 .card-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; font-size: 12px; }

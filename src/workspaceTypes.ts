@@ -41,6 +41,18 @@ export type PurchaseOrder = {
   status: '요청' | '발주완료' | '입고완료'
 }
 
+export const cardAccountingStatuses = ['회계반영', '강제회계반영'] as const
+export type CardAccountingStatus = typeof cardAccountingStatuses[number]
+// Keyed by the Barobill approval id; a missing entry means the row is still 미반영.
+export type CardAccounting = {
+  id: string
+  status: CardAccountingStatus
+  orderNo: string
+  memo: string
+  expenseId?: string
+  updatedAt: string
+}
+
 export type WorkspaceData = {
   expenses: Expense[]
   workLogs: WorkLog[]
@@ -50,9 +62,10 @@ export type WorkspaceData = {
   vendorEdits: Record<string, VendorContact>
   customVendorContacts: Record<'purchase' | 'order', VendorContact[]>
   deliveries: Delivery[]
+  cardAccounting: CardAccounting[]
 }
 export type WorkspaceSnapshot = { data: WorkspaceData; revision: string; initialized: boolean }
 export type SharedWorkspaceStore = WorkspaceSnapshot & {
   save: (patch: Partial<WorkspaceData>, revision: string) => Promise<boolean>
 }
-export const emptyWorkspace = (): WorkspaceData => ({expenses:[],workLogs:[],purchases:[],inactiveVendorKeys:[],deletedVendorKeys:[],vendorEdits:{},customVendorContacts:{purchase:[],order:[]},deliveries:[]})
+export const emptyWorkspace = (): WorkspaceData => ({expenses:[],workLogs:[],purchases:[],inactiveVendorKeys:[],deletedVendorKeys:[],vendorEdits:{},customVendorContacts:{purchase:[],order:[]},deliveries:[],cardAccounting:[]})

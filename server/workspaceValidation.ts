@@ -1,4 +1,4 @@
-import type { WorkspaceData } from '../src/workspaceTypes.ts'
+import { cardAccountingStatuses, type WorkspaceData } from '../src/workspaceTypes.ts'
 import { packWorkspace, unpackWorkLog } from './workspaceCodec.ts'
 
 const vendorFields = ['company','contact','mobile','tel','fax','email','address','item']
@@ -68,7 +68,10 @@ export function validateWorkspace(value: unknown): WorkspaceData {
   for (const row of purchases) if (!['요청','발주완료','입고완료'].includes(String(row.status))) throw new Error('발주 상태를 확인하세요.')
   const deliveries=records(input.deliveries,['date','client','company','address','item','specification','airflow','note'],[],['date','item'],['date'])
   for (const row of deliveries) for (const field of ['client','company','address','specification','airflow','note']) row[field] ??= ''
-  const result = {expenses,workLogs,purchases,deliveries,inactiveVendorKeys:keys(input.inactiveVendorKeys),deletedVendorKeys:keys(input.deletedVendorKeys),vendorEdits:Object.fromEntries(Object.entries(edits).map(([key,row])=>[text(key,true),vendor(row)])),customVendorContacts:{purchase:vendorList(custom.purchase),order:vendorList(custom.order)}} as WorkspaceData
+  // Older shared snapshots predate card accounting, so a missing list means nothing has been posted yet.
+  const cardAccounting=records(input.cardAccounting ?? [],['status','orderNo','memo','expenseId','updatedAt'],[],['status','orderNo','memo','updatedAt'],[])
+  for (const row of cardAccounting) if (!(cardAccountingStatuses as readonly string[]).includes(String(row.status))) throw new Error('회계반영 상태를 확인하세요.')
+  const result = {expenses,workLogs,purchases,deliveries,cardAccounting,inactiveVendorKeys:keys(input.inactiveVendorKeys),deletedVendorKeys:keys(input.deletedVendorKeys),vendorEdits:Object.fromEntries(Object.entries(edits).map(([key,row])=>[text(key,true),vendor(row)])),customVendorContacts:{purchase:vendorList(custom.purchase),order:vendorList(custom.order)}} as WorkspaceData
   if (JSON.stringify(packWorkspace(result)).length > 1500000) throw new Error('공유 자료가 너무 큽니다.')
   return result
 }

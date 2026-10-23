@@ -4,7 +4,7 @@ import {validateWorkspace} from './workspaceValidation.ts'
 import {createWorkspaceHandler} from '../api/workspace.ts'
 import {sameOrigin} from './security.ts'
 const origin='https://workspace.example.test'
-const empty=()=>({expenses:[],workLogs:[],purchases:[],inactiveVendorKeys:[],deletedVendorKeys:[],vendorEdits:{},customVendorContacts:{purchase:[],order:[]},deliveries:[]})
+const empty=()=>({expenses:[],workLogs:[],purchases:[],inactiveVendorKeys:[],deletedVendorKeys:[],vendorEdits:{},customVendorContacts:{purchase:[],order:[]},deliveries:[],cardAccounting:[]})
 const data=()=>({...empty(),expenses:[{id:'e',projectId:'p',date:'2026-10-22',kind:'법인카드',vendor:'거래처',memo:'',amount:1100,supplyAmount:1000,vatAmount:100}],workLogs:[{id:'w',projectId:'p',date:'2026-10-22',worker:'직원',workerType:'직원',startTime:'07:30',endTime:'16:30',location:'',task:'작업',note:'',hours:8,overtimeHours:0}]})
 const req=(body,method='PUT')=>({method,headers:{origin,'content-type':'application/json'},body})
 const res=()=>({statusCode:200,setHeader(){},end(value){this.body=JSON.parse(value)}})
@@ -28,4 +28,15 @@ test('all-menu API denies outsiders and cross-origin writes, restricts initializ
   response=res();await handler(req({data:data(),revision:'a'.repeat(64)}),response);assert.equal(response.statusCode,200)
   conflict=true;response=res();await handler(req({data:data(),revision:'a'.repeat(64)}),response);assert.equal(response.statusCode,409)
   fail=true;response=res();await handler(req({data:data(),revision:'a'.repeat(64)}),response);assert.equal(response.statusCode,503)
+})
+
+test('card accounting defaults for older snapshots and rejects unknown statuses',()=>{
+  const {cardAccounting,...legacy}=empty()
+  assert.deepEqual(cardAccounting,[])
+  assert.deepEqual(validateWorkspace(legacy).cardAccounting,[])
+  const posted={id:'a',status:'회계반영',orderNo:'26006',memo:'',expenseId:'card-a',updatedAt:'2026-10-23T00:00:00.000Z'}
+  const forced={id:'b',status:'강제회계반영',orderNo:'',memo:'',updatedAt:'2026-10-23T00:00:00.000Z'}
+  assert.deepEqual(validateWorkspace({...empty(),cardAccounting:[posted,forced]}).cardAccounting,[posted,forced])
+  assert.throws(()=>validateWorkspace({...empty(),cardAccounting:[{...forced,status:'반영'}]}),/회계반영 상태/)
+  assert.throws(()=>validateWorkspace({...empty(),cardAccounting:[forced,forced]}),/중복/)
 })
