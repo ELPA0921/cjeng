@@ -1087,15 +1087,20 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     ]),
   }
   // The paper 지출내역서 lists supply amounts in date order regardless of the on-screen sort.
+  // A personal card's "card number" holds the owner's name, so it moves to 비고.
   const printExpenses = () => printExpenseSheet(
-    [selectedProject?.orderNo, selectedProject?.projectName].filter(Boolean).join('_ '),
-    [...filteredExpenses].sort((a, b) => a.date.localeCompare(b.date)).map(expense => ({
-      date: expense.date,
-      vendor: expense.vendor,
-      memo: expense.memo,
-      supplyAmount: getExpenseSupplyAmount(expense),
-      cardNumber: expense.cardNumber ?? '',
-    })),
+    [selectedProject?.orderNo, selectedProject?.client1, selectedProject?.projectName].filter(Boolean).join('_'),
+    [...filteredExpenses].sort((a, b) => a.date.localeCompare(b.date)).map(expense => {
+      const personal = normalizeExpenseKind(expense.kind) === '개인카드'
+      return {
+        date: expense.date,
+        vendor: expense.vendor,
+        memo: expense.memo,
+        supplyAmount: getExpenseSupplyAmount(expense),
+        cardNumber: personal ? '개인카드' : expense.cardNumber ?? '',
+        note: personal ? expense.cardNumber ?? '' : '',
+      }
+    }),
   )
   const expensesExportTable: ExportTable = {
     title: `${selectedProject?.orderNo ?? ''} 지출내역`,

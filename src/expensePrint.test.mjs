@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { expenseSheetHtml, paginateSheet, sheetRowsPerPage } from './expensePrint.ts'
 
-const row = (n) => ({ date: '2026-10-05', vendor: `거래처${n}`, memo: '<내용>', supplyAmount: 1000, cardNumber: '3888' })
+const row = (n) => ({ date: '2026-10-05', vendor: `거래처${n}`, memo: '<내용>', supplyAmount: 1000, cardNumber: '3888', note: '' })
 
 test('the last page always keeps a slot for the total row', () => {
   assert.deepEqual(paginateSheet([], 25).map(page => page.length), [0])
@@ -21,4 +21,9 @@ test('every page has a full 25-row grid and only the last page has the 합계 ro
   assert.doesNotMatch(html, /V\.A\.T|<내용>/)
   assert.match(html, /&lt;내용&gt;/)
   for (const label of ['일자', '거래처', '내용', '공급가액', '카드번호', '비고']) assert.match(pages[0], new RegExp(`<th>${label}</th>`))
+})
+
+test('the 비고 column prints the row note, used for personal card owners', () => {
+  const html = expenseSheetHtml('t', [{ ...row(1), cardNumber: '개인카드', note: '김해운' }])
+  assert.ok(html.includes('<span class="fit">개인카드</span></td><td class="center"><span class="fit">김해운</span>'))
 })

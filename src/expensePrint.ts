@@ -1,6 +1,6 @@
 // Printable 지출내역서 matching the company's paper form: A4 portrait, a fixed
 // 25-row grid on every page, and the 합계 row only at the foot of the last page.
-export type ExpenseSheetRow = { date: string; vendor: string; memo: string; supplyAmount: number; cardNumber: string }
+export type ExpenseSheetRow = { date: string; vendor: string; memo: string; supplyAmount: number; cardNumber: string; note: string }
 
 export const sheetRowsPerPage = 25
 const columns = [
@@ -31,7 +31,7 @@ export function expenseSheetHtml(title: string, rows: ExpenseSheetRow[]) {
     const last = index === pages.length - 1
     const blanks = (last ? sheetRowsPerPage - 1 : sheetRowsPerPage) - pageRows.length
     const lines = [
-      ...pageRows.map(row => `<tr>${[row.date, row.vendor, row.memo, money(row.supplyAmount), row.cardNumber, ''].map((text, column) => cell(text, columns[column].className)).join('')}</tr>`),
+      ...pageRows.map(row => `<tr>${[row.date, row.vendor, row.memo, money(row.supplyAmount), row.cardNumber, row.note].map((text, column) => cell(text, columns[column].className)).join('')}</tr>`),
       ...Array.from({ length: blanks }, () => `<tr>${columns.map(() => '<td></td>').join('')}</tr>`),
       ...(last ? [`<tr class="total"><td colspan="3" class="center">합계</td>${cell(money(total), 'num')}<td colspan="2"></td></tr>`] : []),
     ]
