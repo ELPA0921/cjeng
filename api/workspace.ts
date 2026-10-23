@@ -2,9 +2,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { readSession, sameOrigin, settings } from '../server/security.ts'
 import { workspaceSheetsRequest } from '../server/googleSheets.ts'
 import { validateWorkspace } from '../server/workspaceValidation.ts'
-import { validateRevision } from '../server/orderValidation.ts'
 import { applyWorkspaceOps, readWorkspaceRevision, readWorkspaceRows, replaceOps, validateOps, workspaceSql } from '../server/workspaceDb.ts'
 
+// Google Sheets revisions are content hashes; the database revision is a counter sent as text.
+const workspaceRevision = (value: unknown) => typeof value === 'string' && (/^[a-f0-9]{64}$/.test(value) || /^\d{1,15}$/.test(value)) ? value : null
 const rowStore = { sql: () => workspaceSql(settings().databaseUrl), readWorkspaceRevision, readWorkspaceRows, applyWorkspaceOps }
 
 export function createWorkspaceHandler(deps={readSession,sameOrigin,settings,workspaceSheetsRequest,rowStore}) {
@@ -30,8 +31,8 @@ return async function handler(req: IncomingMessage & {body?: unknown},res: Serve
     try {
       if(Number(req.headers['content-length'])>4000000)throw new Error('자료가 너무 큽니다.')
       const body=typeof req.body==='string'?JSON.parse(req.body):req.body as {data?:unknown;ops?:unknown;revision?:unknown;initialize?:unknown}
-      const revision=validateRevision(body?.revision)
-      if(typeof revision!=='string')throw new Error('자료를 다시 불러오세요.')
+      const revision=workspaceRevision(body?.revision)
+      if(!revision)throw new Error('자료를 다시 불러오세요.')
       // The database takes just the changed rows; a whole workspace is still accepted (first connection, older open tabs).
       input=rows && body?.ops!==undefined ? {ops:validateOps(body.ops),revision,initialize:false} : {data:validateWorkspace(body?.data),revision,initialize:body?.initialize===true}
     }catch(error){res.statusCode=400;res.end(JSON.stringify({error:error instanceof Error?error.message:'입력값을 확인하세요.'}));return}
