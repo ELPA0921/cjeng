@@ -128,7 +128,8 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
       vendor: text(row.InvoicerCorpName).trim(),
       vendorCorpNum: /^\d{10}$/.test(corpNum) ? `${corpNum.slice(0, 3)}-${corpNum.slice(3, 5)}-${corpNum.slice(5)}` : corpNum,
       itemName: text(row.ItemName).trim(), supplyAmount: number(row.AmountTotal), vatAmount: number(row.TaxTotal), amount,
-      modified: text(row.ModifyCode).trim() !== '',
+      // 국세청 수정사유 codes are 1-6; normal invoices carry an empty or placeholder value.
+      modified: /^[1-6]$/.test(text(row.ModifyCode).trim()),
     }
   }
   // Barobill does not document the TaxType codes, so every candidate is queried, codes it
