@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { ConnectedCard, CardApprovalPage } from './cardTypes'
+import type { Order } from './orderTypes'
 import { cardSupplyAmount } from './cardAmounts'
 import './CorporateCards.css'
 
@@ -11,7 +12,7 @@ async function request<T>(input: Record<string, unknown>, signal?: AbortSignal):
 }
 const money = (value: number | null) => value === null ? '-' : value.toLocaleString('ko-KR', { maximumFractionDigits: 4 })
 
-export default function CorporateCards() {
+export default function CorporateCards({ orders }: { orders: Order[] }) {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
   const [cards, setCards] = useState<ConnectedCard[]>([])
   const [environment, setEnvironment] = useState('')
@@ -23,6 +24,9 @@ export default function CorporateCards() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [orderByRow, setOrderByRow] = useState<Record<string, string>>({})
+  const sortedOrders = [...orders].sort((a, b) => b.orderNo.localeCompare(a.orderNo, 'ko-KR', { numeric: true }))
   const activeRequest = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -48,8 +52,17 @@ export default function CorporateCards() {
     finally { if (!controller.signal.aborted) setLoading(false) }
   }
   function submit(event: FormEvent) { event.preventDefault(); void query() }
-  function clearResult() { setResult(null); setError('') }
+  function clearResult() { setResult(null); setError(''); setSelectedIds(new Set()); setOrderByRow({}) }
+  function toggleRow(id: string, checked: boolean) {
+    setSelectedIds(current => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next })
+  }
+  function togglePage(checked: boolean) {
+    setSelectedIds(current => { const next = new Set(current); for (const row of pageRows) { if (checked) next.add(row.id); else next.delete(row.id) } return next })
+  }
   const busy = loading || loadingCards
+  const pageRows = result?.records ?? []
+  const pageSelected = pageRows.filter(row => selectedIds.has(row.id)).length
+  const cardLast4 = result?.card.number.slice(-4) ?? ''
 
   return <section className="content-grid single">
     <div className="panel full">
@@ -71,14 +84,28 @@ export default function CorporateCards() {
       {!busy && !error && cards.length === 0 && <p role="status">바로빌에서 승인내역 수집이 설정된 법인카드와 조회 권한을 확인해 주세요.</p>}
       {loading && <p role="status">바로빌에서 승인내역을 불러오고 있습니다.</p>}
       {result ? <>
-        <div className="card-results-heading"><strong>조회 결과 {result.total.toLocaleString('ko-KR')}건</strong><span>{result.card.company} {result.card.number} · {result.startDate} ~ {result.endDate}</span></div>
+        <div className="card-results-heading"><strong>조회 결과 {result.total.toLocaleString('ko-KR')}건{selectedIds.size > 0 && ` · ${selectedIds.size.toLocaleString('ko-KR')}건 선택`}</strong><span>{result.card.company} {result.card.number} · {result.startDate} ~ {result.endDate}</span></div>
         <div className="table-wrap card-results-scroll" role="region" aria-label="법인카드 승인내역" tabIndex={0}>
-          <table className="card-results-table"><thead><tr><th>사용일시 ↑</th><th>가맹점</th><th>승인구분</th><th>승인번호</th><th>통화</th><th>승인금액</th><th>공급가액</th><th>부가세</th><th>메모</th></tr></thead>
+          <table className="card-results-table"><thead><tr>
+            <th className="card-check"><input type="checkbox" aria-label="이 페이지 전체 선택" disabled={pageRows.length === 0} checked={pageRows.length > 0 && pageSelected === pageRows.length} ref={input => { if (input) input.indeterminate = pageSelected > 0 && pageSelected < pageRows.length }} onChange={event => togglePage(event.target.checked)} /></th>
+            <th>수주번호</th><th>사용일시 ↑</th><th>가맹점</th><th>승인금액</th><th>공급가액</th><th>부가세</th><th>카드번호</th>
+          </tr></thead>
             <tbody>{result.records.map(row => {
               const supply = cardSupplyAmount(row)
-              return <tr key={row.id}><td>{row.dateTime}</td><td>{row.store || '-'}</td><td><span className={/취소|환불|거절/.test(row.approvalType) ? 'card-cancelled' : ''}>{row.approvalType || '-'}</span></td><td>{row.approvalNumber || '-'}</td><td>{row.currency}</td><td>{money(row.amount)}</td><td>{money(supply.value)}{supply.calculated && <small className="card-calculated" title="승인금액에서 부가세와 봉사료를 제외한 계산값">계산</small>}</td><td>{money(row.vatAmount)}</td><td>{row.memo || '-'}</td></tr>
+              const cancelled = /취소|환불|거절/.test(row.approvalType)
+              return <tr key={row.id} className={selectedIds.has(row.id) ? 'card-row-selected' : undefined}>
+                <td className="card-check"><input type="checkbox" aria-label={`${row.dateTime} ${row.store} 선택`} checked={selectedIds.has(row.id)} onChange={event => toggleRow(row.id, event.target.checked)} /></td>
+                <td><select className="card-order-select" aria-label="수주번호" value={orderByRow[row.id] ?? ''} onChange={event => { const orderId = event.target.value; setOrderByRow(current => ({ ...current, [row.id]: orderId })) }}>
+                  <option value="">선택</option>
+                  {sortedOrders.map(order => <option key={order.id} value={order.id}>{order.orderNo} · {order.projectName}</option>)}
+                </select></td>
+                <td>{row.dateTime}</td><td>{row.store || '-'}</td>
+                <td><span className={cancelled ? 'card-cancelled' : undefined} title={row.approvalType || undefined}>{money(row.amount)}</span></td>
+                <td>{money(supply.value)}{supply.calculated && <small className="card-calculated" title="승인금액에서 부가세와 봉사료를 제외한 계산값">계산</small>}</td><td>{money(row.vatAmount)}</td>
+                <td>{cardLast4 || '-'}</td>
+              </tr>
             })}
-              {result.records.length === 0 && <tr><td colSpan={9}>해당 기간에 수집된 승인내역이 없습니다.</td></tr>}
+              {result.records.length === 0 && <tr><td colSpan={8}>해당 기간에 수집된 승인내역이 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>
