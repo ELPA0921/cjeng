@@ -93,7 +93,7 @@ export default function CorporateCards() {
               return <tr key={row.id} className={selectedIds.has(row.id) ? 'card-row-selected' : undefined}>
                 <td className="card-check"><input type="checkbox" aria-label={`${row.dateTime} ${row.store} 선택`} checked={selectedIds.has(row.id)} onChange={event => toggleRow(row.id, event.target.checked)} /></td>
                 <td>-</td>
-                <td title={row.dateTime}>{row.dateTime.slice(0, 10)}</td><td>{row.store || '-'}</td>
+                <td className="card-date" data-time={row.dateTime.slice(11, 16)}>{row.dateTime.slice(0, 10)}</td><td>{row.store || '-'}</td>
                 <td>{money(supply.value)}</td><td>{money(row.vatAmount)}</td>
                 <td><span className={cancelled ? 'card-cancelled' : undefined} title={row.approvalType || undefined}>{money(row.amount)}</span></td>
                 <td>{cardLast4 || '-'}</td>
