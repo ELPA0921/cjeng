@@ -9,14 +9,16 @@
 .card-results-heading span { color: var(--text-muted); font-size: 12px; }
 .card-results-scroll { max-height: min(65vh, 600px); overflow: auto; }
 .card-results-scroll thead th { position: sticky; top: 0; z-index: 1; background: #f3f8f5; }
-.card-results-table { min-width: 1080px; table-layout: fixed; }
+.card-results-table { min-width: 1180px; table-layout: fixed; }
 .card-results-table th, .card-results-table td { text-align: center; white-space: nowrap; }
 .card-results-table td:nth-child(n+6):nth-child(-n+8) { text-align: right; }
 .card-results-table td:nth-child(4), .card-results-table td:nth-child(5) { text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .card-results-table th, .card-results-table td { padding: 9px 12px; }
 .card-results-table th:nth-child(2) { width: 90px; }
 .card-results-table th:nth-child(3) { width: 110px; }
-.card-results-table th:nth-child(n+6):nth-child(-n+8) { width: 110px; }
+.card-results-table th:nth-child(4) { width: 150px; }
+.card-results-table th:nth-child(n+6):nth-child(-n+8) { width: 128px; }
+.card-results-table td:nth-child(n+6):nth-child(-n+8) { font-variant-numeric: tabular-nums; }
 .card-results-table th:nth-child(9), .card-results-table th:nth-child(10) { width: 80px; }
 .card-results-table .card-check { width: 40px; }
 .card-results-table .card-check input { width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; vertical-align: middle; cursor: pointer; }
