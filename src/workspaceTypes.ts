@@ -64,7 +64,7 @@ export type WorkspaceData = {
   deliveries: Delivery[]
   cardAccounting: CardAccounting[]
 }
-export type WorkspaceSnapshot = { data: WorkspaceData; revision: string; initialized: boolean }
+export type WorkspaceSnapshot = { data: WorkspaceData; revision: string; initialized: boolean; mode?: 'rows' }
 export type SharedWorkspaceStore = WorkspaceSnapshot & {
   save: (patch: Partial<WorkspaceData>, revision: string) => Promise<boolean>
 }

@@ -3,6 +3,7 @@ import App from './App'
 import type { Order } from './orderTypes'
 import type { WorkspaceData, WorkspaceSnapshot } from './workspaceTypes'
 import { browserWorkspace, mergeBrowserWorkspace } from './browserWorkspace'
+import { hasOps, workspaceOps } from './workspaceDiff'
 import './SharedWorkspace.css'
 
 type User = { email: string; name: string; sub: string }
@@ -19,9 +20,18 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T
 }
 
-async function loadSnapshot(signal?: AbortSignal): Promise<Snapshot> {
-  const [orders,workspace] = await Promise.all([api<OrderSnapshot>('/api/orders',{signal}),api<WorkspaceSnapshot>('/api/workspace',{signal})])
-  return {...orders,workspace}
+type Unchanged = { unchanged: true }
+const unchanged = (value: object): value is Unchanged => 'unchanged' in value
+// With the current snapshot, the server answers "unchanged" instead of resending everything.
+async function loadSnapshot(signal?: AbortSignal, current?: Snapshot | null): Promise<Snapshot> {
+  const since = (revision: number | string | undefined) => current ? `?revision=${encodeURIComponent(String(revision))}` : ''
+  const [orders,workspace] = await Promise.all([
+    api<OrderSnapshot | Unchanged>('/api/orders'+since(current?.revision),{signal}),
+    api<WorkspaceSnapshot | Unchanged>('/api/workspace'+since(current?.workspace.revision),{signal}),
+  ])
+  const nextOrders = unchanged(orders) && current ? { orders: current.orders, revision: current.revision } : orders as OrderSnapshot
+  const nextWorkspace = unchanged(workspace) && current ? current.workspace : workspace as WorkspaceSnapshot
+  return {...nextOrders,workspace:nextWorkspace}
 }
 
 function GoogleButton({ clientId, nonce, onCredential }: { clientId: string; nonce: string; onCredential: (credential: string) => void }) {
@@ -56,6 +66,8 @@ function GoogleButton({ clientId, nonce, onCredential }: { clientId: string; non
 
 function SignedInWorkspace({ user, canInitialize, onSignOut }: { user: User; canInitialize: boolean; onSignOut: () => Promise<void> }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
+  const latest = useRef<Snapshot | null>(null)
+  useEffect(() => { latest.current = snapshot }, [snapshot])
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const busy = useRef(false)
@@ -65,7 +77,7 @@ function SignedInWorkspace({ user, canInitialize, onSignOut }: { user: User; can
   const refresh = useCallback(async () => {
     if (busy.current || writePending.current) return
     busy.current = true
-    const task=loadSnapshot().then(data=>{setSnapshot(data);setMessage('')})
+    const task=loadSnapshot(undefined,latest.current).then(data=>{if(data!==latest.current)setSnapshot(data);setMessage('')})
       .catch(error=>setMessage(error instanceof Error?error.message:'공용 자료를 불러오지 못했습니다.'))
       .finally(()=>{busy.current=false;readTask.current=null})
     readTask.current=task
@@ -113,8 +125,17 @@ function SignedInWorkspace({ user, canInitialize, onSignOut }: { user: User; can
   async function saveWorkspace(patch: Partial<WorkspaceData>, revision: string, initialize=false) {
     if (!snapshot || !await startWrite()) return false
     try {
-      const workspace=await api<WorkspaceSnapshot>('/api/workspace',{method:'PUT',body:JSON.stringify({data:{...snapshot.workspace.data,...patch},revision,initialize})})
-      setSnapshot(current=>current?{...current,workspace}:null)
+      if(snapshot.workspace.mode==='rows' && !initialize){
+        // Send only the rows this save adds, changes or removes.
+        const ops=workspaceOps(snapshot.workspace.data,patch)
+        if(hasOps(ops)){
+          const saved=await api<{revision:string}>('/api/workspace',{method:'PUT',body:JSON.stringify({ops,revision})})
+          setSnapshot(current=>current?{...current,workspace:{...current.workspace,data:{...current.workspace.data,...patch},revision:saved.revision}}:null)
+        }
+      } else {
+        const workspace=await api<WorkspaceSnapshot>('/api/workspace',{method:'PUT',body:JSON.stringify({data:{...snapshot.workspace.data,...patch},revision,initialize})})
+        setSnapshot(current=>current?{...current,workspace}:null)
+      }
       setMessage('공용 자료 저장 완료')
       return true
     }catch(error){

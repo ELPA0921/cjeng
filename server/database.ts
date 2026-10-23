@@ -27,3 +27,10 @@ export async function writeOrders(orders: Record<string, string>[], revision: nu
   const [row] = await sql`UPDATE cjeng_order_workspace SET orders = ${JSON.stringify(orders)}::jsonb, revision = revision + 1, updated_at = now(), updated_by = ${email} WHERE id = 1 AND revision = ${revision} RETURNING orders, revision, updated_at`
   return row ? { orders: row.orders, revision: Number(row.revision), updatedAt: row.updated_at } : null
 }
+
+/** The stored order revision, or null when the store cannot answer cheaply (Google Sheets). */
+export async function readOrdersRevision() {
+  if (settings().storage === 'sheets') return null
+  const [row] = await database()`SELECT revision FROM cjeng_order_workspace WHERE id = 1`
+  return row ? String(row.revision) : null
+}

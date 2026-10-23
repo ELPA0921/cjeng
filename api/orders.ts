@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { readOrders, writeOrders } from '../server/database.ts'
+import { readOrders, readOrdersRevision, writeOrders } from '../server/database.ts'
 import { readSession, sameOrigin, settings } from '../server/security.ts'
 import { validateOrders, validateRevision } from '../server/orderValidation.ts'
 
 type Request = IncomingMessage & { body?: unknown }
-export function createOrdersHandler(deps = { readSession, sameOrigin, settings, readOrders, writeOrders }) {
+export function createOrdersHandler(deps = { readSession, sameOrigin, settings, readOrders, readOrdersRevision, writeOrders }) {
 return async function handler(req: Request, res: ServerResponse) {
   res.setHeader('Cache-Control', 'private, no-store')
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
@@ -12,7 +12,12 @@ return async function handler(req: Request, res: ServerResponse) {
   try {
     const user = await deps.readSession(req)
     if (!user) { res.statusCode = 401; res.end(JSON.stringify({ error: '직원 계정으로 로그인해 주세요.' })); return }
-    if (req.method === 'GET') { res.end(JSON.stringify(await deps.readOrders())); return }
+    if (req.method === 'GET') {
+      // Polling sends the revision it already has; answer without the orders when nothing changed.
+      const known = new URL(req.url ?? '/', 'http://local').searchParams.get('revision')
+      if (known && known === await deps.readOrdersRevision()) { res.end(JSON.stringify({ unchanged: true, revision: known })); return }
+      res.end(JSON.stringify(await deps.readOrders())); return
+    }
     if (req.method !== 'PUT') { res.statusCode = 405; res.setHeader('Allow', 'GET, PUT'); res.end('{}'); return }
     if (!deps.sameOrigin(req, deps.settings().origin)) { res.statusCode = 403; res.end(JSON.stringify({ error: '요청한 접속 주소를 확인하세요.' })); return }
     let orders: Record<string, string>[], revision: number | string

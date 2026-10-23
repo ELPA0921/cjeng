@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from 'node:crypto'
 import { settings } from './security.ts'
 import { validateOrders, validateRevision } from './orderValidation.ts'
-import { validateWorkspace } from './workspaceValidation.ts'
+import { checkSheetsSize, validateWorkspace } from './workspaceValidation.ts'
 import { packWorkspace } from './workspaceCodec.ts'
 
 type SheetsAction = 'read' | 'write' | 'workspace-read' | 'workspace-write'
@@ -29,10 +29,11 @@ export async function sheetsRequest(action: 'read' | 'write', data?: unknown) {
   const body = await request(action,data)
   return body ? { orders: validateOrders(body.orders), revision: validateRevision(body.revision) } : null
 }
+const sheetsSized = (data: ReturnType<typeof validateWorkspace>) => { checkSheetsSize(data); return data }
 export async function workspaceSheetsRequest(action: 'workspace-read' | 'workspace-write', data?: unknown) {
   const input = data as { data?: unknown } | undefined
   const outgoing = action === 'workspace-write' && input?.data
-    ? { ...input, data: packWorkspace(validateWorkspace(input.data)) }
+    ? { ...input, data: packWorkspace(sheetsSized(validateWorkspace(input.data))) }
     : data
   const body=await request(action,outgoing)
   if(!body)return null
