@@ -9,7 +9,8 @@ import CorporateCards from './CorporateCards'
 import TaxInvoices from './TaxInvoices'
 import { printExpenseSheet } from './expensePrint'
 import { planColumns } from './printLayout'
-import { adminOrder, adminOrders, adminProjectId, isAdminProject } from './adminExpenses'
+import { adminOrder, adminOrders, adminProjectId, adminYearOfProject, isAdminProject } from './adminExpenses'
+import { syncEditedExpense, unlinkDeletedExpenses } from './cardAccounting'
 import type { Order, SharedOrderStore } from './orderTypes'
 import type { CardAccounting, Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
 import { defaultOrders, defaultExpenses, defaultWorkLogs, defaultPurchaseOrders } from './sampleData'
@@ -1927,9 +1928,12 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     )
     if (!canDelete) return
 
-    const saved = await setExpenses((current) =>
-      current.filter((expense) => !selectedExpenseIds.includes(expense.id)),
-    )
+    // Removing a posted card or tax invoice expense also sends that row back to 미반영.
+    const deleted = new Set(selectedExpenseIds)
+    const saved = await updateWorkspace({
+      expenses: expenses.filter((expense) => !deleted.has(expense.id)),
+      cardAccounting: unlinkDeletedExpenses(cardAccounting, deleted),
+    })
     if (!saved) return
     setSelectedExpenseIds([])
     setEditingExpenseId(null)
@@ -2052,8 +2056,10 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     if (!expenseForm.vendor.trim() || !amount) return
 
     if (editingExpenseId) {
-      const saved = await setExpenses((current) =>
-        current.map((expense) =>
+      const adminYear = adminYearOfProject(expenseForm.projectId)
+      const orderNo = adminYear ? adminOrder(adminYear).orderNo : orders.find((order) => order.id === expenseForm.projectId)?.orderNo ?? ''
+      const saved = await updateWorkspace({
+        expenses: expenses.map((expense) =>
           expense.id === editingExpenseId
             ? {
                 ...expense,
@@ -2069,8 +2075,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
               }
             : expense,
         ),
-        expenseEditRevision,
-      )
+        cardAccounting: syncEditedExpense(cardAccounting, { id: editingExpenseId, memo: expenseForm.memo }, orderNo),
+      }, expenseEditRevision)
       if (!saved) return
       if (!isAdminProject(expenseForm.projectId)) setSelectedProjectId(expenseForm.projectId)
       setEditingExpenseId(null)

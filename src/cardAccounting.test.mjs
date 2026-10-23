@@ -54,3 +54,15 @@ test('YY000 order numbers post to that year\'s 관리비 without a 수주대장 
   assert.equal(posted.expenses[0].projectId, 'admin-2026')
   assert.equal(posted.cardAccounting[0].orderNo, '26000')
 })
+
+test('deleting a posted expense returns its row to 미반영 and editing keeps the posting in step', async () => {
+  const { unlinkDeletedExpenses, syncEditedExpense } = await import('./cardAccounting.ts')
+  const posted = applyCardAccounting([{ row, status: '회계반영', orderNo: '26000', memo: '사무용품' }], empty, 'T1')
+  const forced = { id: 'f', status: '강제회계반영', orderNo: '', memo: '', updatedAt: 'T1' }
+  const all = [...posted.cardAccounting, forced]
+  assert.deepEqual(unlinkDeletedExpenses(all, new Set([posted.expenses[0].id])), [forced])
+  assert.deepEqual(unlinkDeletedExpenses(all, new Set(['other'])), all)
+  const edited = syncEditedExpense(all, { id: posted.expenses[0].id, memo: ' 문구류 ' }, '26006', 'T2')
+  assert.deepEqual(edited[0], { ...posted.cardAccounting[0], orderNo: '26006', memo: '문구류', updatedAt: 'T2' })
+  assert.deepEqual(edited[1], forced)
+})

@@ -80,3 +80,13 @@ export function applyCardAccounting(
   }
   return { cardAccounting: [...entries.values()], expenses: [...expenses.values()] }
 }
+
+/** Deleting a posted expense sends its source row back to 미반영. */
+export function unlinkDeletedExpenses(cardAccounting: CardAccounting[], deletedExpenseIds: Set<string>) {
+  return cardAccounting.filter(entry => !entry.expenseId || !deletedExpenseIds.has(entry.expenseId))
+}
+
+/** Editing a posted expense keeps its source row's 수주번호 and 내용 in step. */
+export function syncEditedExpense(cardAccounting: CardAccounting[], expense: Pick<Expense, 'id' | 'memo'>, orderNo: string, now = new Date().toISOString()) {
+  return cardAccounting.map(entry => entry.expenseId === expense.id ? { ...entry, orderNo, memo: expense.memo.trim(), updatedAt: now } : entry)
+}
