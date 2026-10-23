@@ -179,3 +179,28 @@ input, select, textarea, .form-panel label { font-size: 14px; }
   .home-shortcuts strong { font-size: 12px; }
   .home-shortcuts small { font-size: 10px; }
 }
+
+/* Phones: every menu visible as a 4-column grid, the 지출내역 submenu as its own row underneath. */
+@media (max-width: 720px) {
+  .nav-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; overflow: visible; padding: 4px; margin-top: 14px; }
+  .nav-tabs button { flex-direction: column; justify-content: center; gap: 4px; min-height: 54px; padding: 6px 2px; font-size: 11px; line-height: 1.2; text-align: center; white-space: nowrap; }
+  .nav-tabs:has(.expense-subnav) { flex-wrap: nowrap; }
+  .nav-tabs .expense-subnav { grid-column: 1 / -1; order: 1; display: flex; flex-wrap: nowrap; gap: 4px; margin: 2px 0 0; padding: 4px 0 2px; overflow-x: auto; border-top: 1px solid var(--line); scrollbar-width: none; }
+  .nav-tabs .expense-subnav::-webkit-scrollbar { display: none; }
+  .nav-tabs .expense-subnav button { flex: 0 0 auto; flex-direction: row; min-height: 34px; padding: 6px 12px; font-size: 12px; }
+}
+
+/* Phones: readable minimum sizes, tappable links and calendar days, and a hint that wide tables scroll. */
+@media (max-width: 720px) {
+  .topbar-actions span { font-size: 11px; }
+  .modal-backdrop { padding: 12px; }
+  .section-kicker { font-size: 9px; }
+  .progress-ring span, .progress-ring small, .visual-caption { font-size: 9px; }
+  .text-link { min-height: 32px; padding: 6px 4px; }
+  .calendar-date-row { flex-direction: column; align-items: flex-start; gap: 1px; }
+  .calendar-date-button { min-height: 26px; width: 100%; text-align: left; }
+  .calendar-holiday-name { max-width: 100%; font-size: 9px; letter-spacing: -0.6px; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+  .calendar-entry { font-size: 10px; }
+  /* Fade the right edge so it is clear more columns are off-screen; the padding keeps the last column clear once scrolled to the end. */
+  .table-wrap:not(.card-accounting-rows) { padding-right: 24px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+}

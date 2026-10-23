@@ -78,10 +78,10 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
               <td>{row.date}</td>
               <td className="card-accounting-store">{row.vendor || '-'}</td>
               <td className="card-accounting-amount">{money(row.amount)}</td>
-              {mode === 'edit' && <td><select aria-label="상태" value={draft.status} onChange={event => update(row.id, { status: event.target.value as CardAccountingChoice })}>
+              {mode === 'edit' && <td className="card-accounting-wide" data-label="상태"><select aria-label="상태" value={draft.status} onChange={event => update(row.id, { status: event.target.value as CardAccountingChoice })}>
                 {statusChoices.map(status => <option key={status} value={status}>{status}</option>)}
               </select></td>}
-              <td>
+              <td className="card-accounting-wide" data-label="수주번호">
                 <div className="card-order-field">
                   <input aria-label="수주번호" aria-invalid={invalid.has(row.id)} value={draft.orderNo} disabled={!needsOrder} placeholder={needsOrder ? '수주번호' : '-'}
                     onChange={event => update(row.id, { orderNo: event.target.value })} onBlur={() => checkOrder(row.id)} />
@@ -91,7 +91,7 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
                 </div>
                 {invalid.has(row.id) && <small className="card-order-error" role="alert">{missingOrderMessage}</small>}
               </td>
-              <td><input aria-label="내용" value={draft.memo} disabled={draft.status === '미반영'} placeholder="내용" onChange={event => update(row.id, { memo: event.target.value })} /></td>
+              <td className="card-accounting-wide" data-label="내용"><input aria-label="내용" value={draft.memo} disabled={draft.status === '미반영'} placeholder="내용" onChange={event => update(row.id, { memo: event.target.value })} /></td>
             </tr>
           })}</tbody>
         </table>

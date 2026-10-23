@@ -82,3 +82,27 @@
 /* The tax invoice table has no card number column, so its status column is the ninth. */
 .tax-results-table { min-width: 1100px; }
 .tax-results-table th:nth-child(9) { width: 112px; }
+
+@media (max-width: 720px) {
+  .card-toolbar { border-bottom: 0; }
+  .card-filter-tabs { width: 100%; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+  .card-filter-tabs::-webkit-scrollbar { display: none; }
+  .card-filter-tab { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 2px; padding: 5px 2px 6px; font-size: 11px; white-space: nowrap; }
+  .card-filter-tab span { min-width: 0; padding: 0 6px; font-size: 10px; }
+  .card-accounting-actions { width: 100%; padding: 8px 0 0; }
+  .card-accounting-actions button { flex: 1; }
+  .card-accounting-notice { text-align: left; }
+  /* The posting window: full screen width, close button stays top right, each row becomes a card. */
+  .card-accounting-modal { min-width: 0; max-width: 100%; }
+  .card-accounting-modal .modal-heading { flex-direction: row; align-items: flex-start; }
+  .card-accounting-rows { max-height: none; overflow: visible; border: 0; background: transparent; }
+  .card-accounting-rows table { min-width: 0; }
+  .card-accounting-rows thead { display: none; }
+  .card-accounting-rows tr { display: grid; grid-template-columns: 1fr auto; gap: 8px 10px; margin-bottom: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+  .card-accounting-rows td { display: block; padding: 0; border: 0; line-height: 1.4; white-space: normal; }
+  .card-accounting-rows .card-accounting-store { grid-column: 1 / -1; order: -1; padding: 0; font-weight: 700; }
+  .card-accounting-rows .card-accounting-wide { grid-column: 1 / -1; }
+  .card-accounting-rows .card-accounting-wide::before { content: attr(data-label); display: block; margin-bottom: 4px; color: var(--text-muted); font-size: 11px; font-weight: 600; }
+  .card-order-field { min-width: 0; }
+  .card-order-picker-list button { grid-template-columns: 76px 1fr; }
+}
