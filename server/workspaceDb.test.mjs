@@ -70,3 +70,28 @@ test('a large copy is split across statements and still keeps every row in order
   assert.equal(read.data.expenses.length, 2500)
   assert.deepEqual(read.data.expenses.map(row => row.id), expenses.map(row => row.id))
 })
+
+test('the workspace API accepts the database revision and saves only the sent rows', async () => {
+  const { createWorkspaceHandler } = await import('../api/workspace.ts')
+  const sql = await freshStore()
+  await applyWorkspaceOps(sql, replaceOps({ ...emptyWorkspace(), expenses: [expense('a', 1)] }), '0', 'u', { replace: true })
+  const handler = createWorkspaceHandler({
+    readSession: async () => ({ email: 'staff@x', name: 'S', sub: '1' }),
+    sameOrigin: () => true,
+    settings: () => ({ storage: 'postgres', origin: 'https://x', allowed: new Set(['admin@x']) }),
+    workspaceSheetsRequest: async () => { throw new Error('sheets must not be used') },
+    rowStore: { sql: () => sql, readWorkspaceRevision, readWorkspaceRows, applyWorkspaceOps },
+  })
+  const call = async (method, url, body) => {
+    const res = { statusCode: 200, headers: {}, setHeader(k, v) { this.headers[k] = v }, end(text) { this.body = JSON.parse(text) } }
+    await handler({ method, url, headers: {}, body }, res)
+    return res
+  }
+  const saved = await call('PUT', '/api/workspace', { ops: { upsert: { expenses: [expense('b', 2)] } }, revision: '1' })
+  assert.deepEqual([saved.statusCode, saved.body], [200, { revision: '2', mode: 'rows' }])
+  assert.equal((await call('PUT', '/api/workspace', { ops: { delete: { expenses: ['a'] } }, revision: '1' })).statusCode, 409)
+  assert.deepEqual((await call('GET', '/api/workspace?revision=2')).body, { unchanged: true, revision: '2' })
+  const full = await call('GET', '/api/workspace')
+  assert.deepEqual(full.body.data.expenses.map(row => row.id), ['a', 'b'])
+  assert.equal(full.body.mode, 'rows')
+})
