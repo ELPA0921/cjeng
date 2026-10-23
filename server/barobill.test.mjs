@@ -69,3 +69,22 @@ test('card API requires staff session and same origin before calling Barobill; e
   response=res(); await handler({...req,headers:{...req.headers,origin:'https://evil.example'}},response); assert.equal(response.statusCode,403); assert.equal(calls,0)
   response=res(); await handler(req,response); assert.equal(response.statusCode,503); assert.doesNotMatch(JSON.stringify(response.body),/sensitive/)
 })
+
+test('all cards merges every page of every card by date and pages the result with per-row card numbers', async () => {
+  const second = '9876543210123888'
+  const twoCards = `<CardInfo><CardNum>${cardNum}</CardNum><CardType>C</CardType><CardCompanyName>테스트카드</CardCompanyName></CardInfo><CardInfo><CardNum>${second}</CardNum><CardType>C</CardType><CardCompanyName>국민카드</CardCompanyName></CardInfo>`
+  const history = (key, dt) => `<CardApprovalHistory><HistoryKey>${key}</HistoryKey><ApprovalDT>${dt}</ApprovalDT><ApprovalAmount>1000</ApprovalAmount><CurrencyCode>KRW</CurrencyCode><StoreName>${key}</StoreName></CardApprovalHistory>`
+  const pages = { [cardNum]: [[history('a1', '20261002090000'), history('a2', '20261005090000')], [history('a3', '20261007090000')]], [second]: [[history('b1', '20261003090000')]] }
+  const client = createBarobillClient(config, async (_url, init) => {
+    if (init.body.includes('<GetCardsByAuthID ')) return reply('GetCardsByAuthID', twoCards)
+    const card = init.body.match(/<CardNum>(\d+)<\/CardNum>/)[1], page = Number(init.body.match(/<CurrentPage>(\d+)<\/CurrentPage>/)[1])
+    const list = pages[card]
+    return reply('GetApprovalHistories', `<CurrentPage>${page}</CurrentPage><MaxIndex>${list.flat().length}</MaxIndex><MaxPageNum>${list.length}</MaxPageNum><Histories>${list[page - 1].join('')}</Histories>`)
+  })
+  const result = await client.approvals({ cardId: 'all', startDate: '2026-10-01', endDate: '2026-10-23' })
+  assert.deepEqual(result.records.map(row => `${row.store}:${row.cardNumber}`), ['a1:4858', 'b1:3888', 'a2:4858', 'a3:4858'])
+  assert.equal(result.total, 4); assert.equal(result.totalPages, 1); assert.equal(result.card.company, '전체 카드')
+  await assert.rejects(client.approvals({ cardId: 'all', startDate: '2026-10-01', endDate: '2026-10-23', page: 2 }), /페이지/)
+  assert.equal(validateCardQuery({ cardId: 'all', startDate: '2026-10-01', endDate: '2026-10-02' }).cardId, 'all')
+  assert.throws(() => validateCardQuery({ cardId: 'everything', startDate: '2026-10-01', endDate: '2026-10-02' }), /카드/)
+})

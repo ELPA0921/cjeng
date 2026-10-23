@@ -4,6 +4,7 @@ export type CardApproval = {
   store: string; storeNumber: string; amount: number; currency: string
   supplyAmount: number | null; vatAmount: number | null; serviceCharge: number | null
   memo: string
+  cardNumber: string
 }
 export type CardApprovalPage = {
   records: CardApproval[]; page: number; totalPages: number; total: number

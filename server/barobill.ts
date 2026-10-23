@@ -7,6 +7,9 @@ type Fields = Record<string, string | number>
 type Row = Record<string, unknown>
 export class BarobillError extends Error {}
 export class CardInputError extends Error {}
+export const allCardsId = 'all'
+// Upper bound for one card when merging every card; keeps a single request from paging forever.
+const maxPagesPerCard = 30
 const object = (value: unknown): Row => value && typeof value === 'object' && !Array.isArray(value) ? value as Row : {}
 const list = (value: unknown): Row[] => value == null || value === '' ? [] : (Array.isArray(value) ? value : [value]).map(object)
 const text = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : ''
@@ -31,7 +34,7 @@ export function validateCardQuery(input: Row) {
   const validDate = (day: string) => /^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(Date.parse(day)) && new Date(day).toISOString().slice(0, 10) === day
   if (!validDate(startDate) || !validDate(endDate) || endDate < startDate || (Date.parse(endDate) - Date.parse(startDate)) / 86400000 >= 200) throw new CardInputError('조회 기간은 시작일부터 최대 200일로 설정해 주세요.')
   const page = input.page ?? 1
-  if (!Number.isInteger(page) || Number(page) < 1 || Number(page) > 10000 || !/^[a-f0-9]{64}$/.test(cardId)) throw new CardInputError('카드와 조회 페이지를 확인해 주세요.')
+  if (!Number.isInteger(page) || Number(page) < 1 || Number(page) > 10000 || (cardId !== allCardsId && !/^[a-f0-9]{64}$/.test(cardId))) throw new CardInputError('카드와 조회 페이지를 확인해 주세요.')
   return { startDate, endDate, cardId, page: Number(page) }
 }
 
@@ -67,23 +70,44 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
     if (cards.some(card => !/^\d{12,20}$/.test(text(card.CardNum)))) throw new BarobillError('바로빌 카드번호 형식을 확인할 수 없습니다.')
     return cards.filter(card => text(card.CardType) === 'C')
   }
+  async function approvalPage(card: Row, query: { startDate: string; endDate: string }, page: number) {
+    const result = await call('GetApprovalHistories', { CardNum: text(card.CardNum), StartDate: query.startDate.replaceAll('-', ''), EndDate: query.endDate.replaceAll('-', ''), CountPerPage: 100, CurrentPage: page, OrderDirection: 1 })
+    const current = Number(result.CurrentPage), total = Number(result.MaxIndex), pages = Number(result.MaxPageNum)
+    if (Number.isInteger(current) && current < 0) throw new BarobillError(`바로빌 승인내역 조회 오류 (${current}). 카드 조회 권한과 수집 상태를 확인해 주세요.`)
+    if (current !== page || !Number.isInteger(total) || total < 0 || !Number.isInteger(pages) || pages < 0) throw new BarobillError('바로빌 조회 페이지를 확인할 수 없습니다.')
+    const cardNumber = text(card.CardNum).slice(-4)
+    const records = list(object(result.Histories).CardApprovalHistory).map(row => {
+      const date = text(row.ApprovalDT), amount = number(row.ApprovalAmount), key = text(row.HistoryKey)
+      if (!/^\d{14}$/.test(date) || amount === null || !key) throw new BarobillError('바로빌 승인내역의 필수 항목을 확인할 수 없습니다.')
+      return { id: token(`${text(card.CardNum)}:${key}`), dateTime: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)} ${date.slice(8,10)}:${date.slice(10,12)}:${date.slice(12,14)}`, approvalType: text(row.ApprovalType), approvalNumber: text(row.ApprovalNum), store: text(row.StoreName), storeNumber: text(row.StoreCorpNum), amount, currency: text(row.CurrencyCode) || 'KRW', supplyAmount: number(row.Amount), vatAmount: number(row.Tax), serviceCharge: number(row.ServiceCharge), memo: text(row.Memo), cardNumber }
+    })
+    return { records, total, pages }
+  }
+  async function everyApproval(card: Row, query: { startDate: string; endDate: string }) {
+    const first = await approvalPage(card, query, 1)
+    if (first.pages > maxPagesPerCard) throw new CardInputError('전체 카드로 보기에는 내역이 너무 많습니다. 조회 기간을 줄이거나 카드를 선택해 주세요.')
+    const records = [...first.records]
+    for (let page = 2; page <= first.pages; page++) records.push(...(await approvalPage(card, query, page)).records)
+    return records
+  }
   return {
     environment: config.test ? 'test' as const : 'production' as const,
     async cards() { return (await authorizedCards()).map(safeCard) },
     async approvals(input: Row): Promise<CardApprovalPage> {
       const query = validateCardQuery(input)
-      const cards = await authorizedCards(), card = cards.find(row => token(text(row.CardNum)) === query.cardId)
+      const cards = await authorizedCards()
+      if (query.cardId === allCardsId) {
+        // Barobill pages per card, so merge every card by date and page the result here.
+        const records = (await Promise.all(cards.map(card => everyApproval(card, query)))).flat()
+          .sort((a, b) => a.dateTime.localeCompare(b.dateTime) || a.cardNumber.localeCompare(b.cardNumber))
+        const totalPages = Math.ceil(records.length / 100)
+        if (query.page > Math.max(1, totalPages)) throw new CardInputError('카드와 조회 페이지를 확인해 주세요.')
+        return { records: records.slice((query.page - 1) * 100, query.page * 100), page: query.page, totalPages, total: records.length, card: { id: allCardsId, company: '전체 카드', number: '', alias: '' }, startDate: query.startDate, endDate: query.endDate }
+      }
+      const card = cards.find(row => token(text(row.CardNum)) === query.cardId)
       if (!card) throw new CardInputError('조회 권한이 있는 법인카드를 다시 선택해 주세요.')
-      const result = await call('GetApprovalHistories', { CardNum: text(card.CardNum), StartDate: query.startDate.replaceAll('-', ''), EndDate: query.endDate.replaceAll('-', ''), CountPerPage: 100, CurrentPage: query.page, OrderDirection: 1 })
-      const current = Number(result.CurrentPage), total = Number(result.MaxIndex), pages = Number(result.MaxPageNum)
-      if (Number.isInteger(current) && current < 0) throw new BarobillError(`바로빌 승인내역 조회 오류 (${current}). 카드 조회 권한과 수집 상태를 확인해 주세요.`)
-      if (current !== query.page || !Number.isInteger(total) || total < 0 || !Number.isInteger(pages) || pages < 0) throw new BarobillError('바로빌 조회 페이지를 확인할 수 없습니다.')
-      const records = list(object(result.Histories).CardApprovalHistory).map(row => {
-        const date = text(row.ApprovalDT), amount = number(row.ApprovalAmount), key = text(row.HistoryKey)
-        if (!/^\d{14}$/.test(date) || amount === null || !key) throw new BarobillError('바로빌 승인내역의 필수 항목을 확인할 수 없습니다.')
-        return { id: token(`${text(card.CardNum)}:${key}`), dateTime: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)} ${date.slice(8,10)}:${date.slice(10,12)}:${date.slice(12,14)}`, approvalType: text(row.ApprovalType), approvalNumber: text(row.ApprovalNum), store: text(row.StoreName), storeNumber: text(row.StoreCorpNum), amount, currency: text(row.CurrencyCode) || 'KRW', supplyAmount: number(row.Amount), vatAmount: number(row.Tax), serviceCharge: number(row.ServiceCharge), memo: text(row.Memo) }
-      })
-      return { records, page: current, totalPages: pages, total, card: safeCard(card), startDate: query.startDate, endDate: query.endDate }
+      const { records, total, pages } = await approvalPage(card, query, query.page)
+      return { records, page: query.page, totalPages: pages, total, card: safeCard(card), startDate: query.startDate, endDate: query.endDate }
     },
   }
 }

@@ -49,7 +49,7 @@ export default function CorporateCards({ orders, expenses, cardAccounting, onSav
   useEffect(() => {
     const controller = new AbortController()
     request<{ cards: ConnectedCard[]; environment: string }>({ action: 'cards' }, controller.signal)
-      .then(data => { setCards(data.cards); setCardId(data.cards[0]?.id ?? ''); setEnvironment(data.environment) })
+      .then(data => { setCards(data.cards); setCardId(data.cards.length ? 'all' : ''); setEnvironment(data.environment) })
       .catch(err => { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : '카드 목록 조회에 실패했습니다.') })
       .finally(() => { if (!controller.signal.aborted) setLoadingCards(false) })
     return () => controller.abort()
@@ -82,11 +82,10 @@ export default function CorporateCards({ orders, expenses, cardAccounting, onSav
   const pageRows = filter === '전체' ? allRows : allRows.filter(row => statusOf(row) === filter)
   const filterCount = (value: Filter) => value === '전체' ? allRows.length : allRows.filter(row => statusOf(row) === value).length
   const pageSelected = pageRows.filter(row => selectedIds.has(row.id)).length
-  const cardLast4 = result?.card.number.slice(-4) ?? ''
   const selectedRows = pageRows.filter(row => selectedIds.has(row.id))
 
   async function save(inputs: CardAccountingInput[]) {
-    const next = applyCardAccounting(inputs, { cardAccounting, expenses, orders }, cardLast4)
+    const next = applyCardAccounting(inputs, { cardAccounting, expenses, orders })
     return onSave(next)
   }
   // Rows already in another state are left alone so one click never overwrites earlier work.
@@ -134,6 +133,7 @@ export default function CorporateCards({ orders, expenses, cardAccounting, onSav
       <form className="card-query-form" onSubmit={submit}>
         <label>법인카드<select value={cardId} disabled={busy || cards.length === 0} onChange={event => { setCardId(event.target.value); clearResult() }}>
           {cards.length === 0 && <option value="">{loadingCards ? '카드 목록을 불러오는 중…' : '조회할 법인카드가 없습니다'}</option>}
+          {cards.length > 0 && <option value="all">전체 카드</option>}
           {cards.map(card => <option key={card.id} value={card.id}>{card.company} {card.number}</option>)}
         </select></label>
         <label>시작일<input type="date" required value={startDate} disabled={busy} onChange={event => { setStartDate(event.target.value); clearResult() }} /></label>
@@ -145,7 +145,7 @@ export default function CorporateCards({ orders, expenses, cardAccounting, onSav
       {!busy && !error && cards.length === 0 && <p role="status">바로빌에서 승인내역 수집이 설정된 법인카드와 조회 권한을 확인해 주세요.</p>}
       {loading && <p role="status">바로빌에서 승인내역을 불러오고 있습니다.</p>}
       {result ? <>
-        <div className="card-results-heading"><strong>조회 결과 {result.total.toLocaleString('ko-KR')}건{selectedIds.size > 0 && ` · ${selectedIds.size.toLocaleString('ko-KR')}건 선택`}</strong><span>{result.card.company} {result.card.number} · {result.startDate} ~ {result.endDate}</span></div>
+        <div className="card-results-heading"><strong>조회 결과 {result.total.toLocaleString('ko-KR')}건{selectedIds.size > 0 && ` · ${selectedIds.size.toLocaleString('ko-KR')}건 선택`}</strong><span>{[result.card.company, result.card.number].filter(Boolean).join(' ')} · {result.startDate} ~ {result.endDate}</span></div>
         <div className="card-toolbar">
           <div className="card-filter-tabs" role="tablist" aria-label="회계반영 상태로 보기">
             {filters.map(value => <button key={value} type="button" role="tab" aria-selected={filter === value} className={`card-filter-tab ${statusClass[value] ?? ''}`} onClick={() => { setFilter(value); setSelectedIds(new Set()) }}>
@@ -174,7 +174,7 @@ export default function CorporateCards({ orders, expenses, cardAccounting, onSav
                 <td className="card-date" data-time={row.dateTime.slice(11, 16)}>{row.dateTime.slice(0, 10)}</td><td>{row.store || '-'}</td><td>{entry?.memo || '-'}</td>
                 <td>{money(supply.value)}</td><td>{money(row.vatAmount)}</td>
                 <td><span className={cancelled ? 'card-cancelled' : undefined} title={row.approvalType || undefined}>{money(row.amount)}</span></td>
-                <td>{cardLast4 || '-'}</td>
+                <td>{row.cardNumber || '-'}</td>
                 <td><span className={`card-accounting ${statusClass[entry?.status ?? ''] ?? ''}`}>{entry?.status ?? '미반영'}</span></td>
               </tr>
             })}

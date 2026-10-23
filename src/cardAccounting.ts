@@ -28,7 +28,6 @@ export function invalidOrderRows(inputs: CardAccountingInput[], orders: Order[])
 export function applyCardAccounting(
   inputs: CardAccountingInput[],
   state: { cardAccounting: CardAccounting[]; expenses: Expense[]; orders: Order[] },
-  cardLast4: string,
   now = new Date().toISOString(),
 ) {
   const entries = new Map(state.cardAccounting.map(entry => [entry.id, entry]))
@@ -51,7 +50,7 @@ export function applyCardAccounting(
         kind: '법인카드',
         vendor: row.store.trim() || '법인카드',
         memo: entry.memo,
-        cardNumber: cardLast4,
+        cardNumber: row.cardNumber,
         ...(supply === null ? {} : { supplyAmount: supply }),
         ...(row.vatAmount === null ? {} : { vatAmount: row.vatAmount }),
         amount: row.amount,
