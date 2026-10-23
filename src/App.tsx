@@ -6,6 +6,7 @@ import './design.css'
 import { getWorkCategory, workCategories, workProjectLabel, type WorkCategory } from './workLogCategories'
 import DeliveryPerformance from './DeliveryPerformance'
 import CorporateCards from './CorporateCards'
+import { printExpenseSheet } from './expensePrint'
 import type { Order, SharedOrderStore } from './orderTypes'
 import type { CardAccounting, Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
 import { defaultOrders, defaultExpenses, defaultWorkLogs, defaultPurchaseOrders } from './sampleData'
@@ -1085,6 +1086,17 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
       formatNumber(project.purchaseAmount),
     ]),
   }
+  // The paper 지출내역서 lists supply amounts in date order regardless of the on-screen sort.
+  const printExpenses = () => printExpenseSheet(
+    [selectedProject?.orderNo, selectedProject?.projectName].filter(Boolean).join('_ '),
+    [...filteredExpenses].sort((a, b) => a.date.localeCompare(b.date)).map(expense => ({
+      date: expense.date,
+      vendor: expense.vendor,
+      memo: expense.memo,
+      supplyAmount: getExpenseSupplyAmount(expense),
+      cardNumber: expense.cardNumber ?? '',
+    })),
+  )
   const expensesExportTable: ExportTable = {
     title: `${selectedProject?.orderNo ?? ''} 지출내역`,
     columns: [
@@ -1546,6 +1558,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   function renderOutputButtons(
     table: ExportTable,
     onImport?: (records: CsvRecord[]) => void,
+    onPrint = () => printExportTable(table),
   ) {
     return (
       <div className="output-actions">
@@ -1575,7 +1588,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           className="ghost-button compact-button"
           disabled={table.rows.length === 0}
           type="button"
-          onClick={() => printExportTable(table)}
+          onClick={onPrint}
         >
           인쇄
         </button>
@@ -3470,7 +3483,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   >
                     삭제
                   </button>
-                  {renderOutputButtons(expensesExportTable, importExpensesFromCsv)}
+                  {renderOutputButtons(expensesExportTable, importExpensesFromCsv, printExpenses)}
                 </div>
               </div>
               <div className="table-wrap">
