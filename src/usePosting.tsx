@@ -1,0 +1,105 @@
+import { useRef, useState } from 'react'
+import type { Order } from './orderTypes'
+import type { CardAccounting, Expense, WorkspaceData } from './workspaceTypes'
+import { applyCardAccounting, type CardAccountingInput, type PostingSource } from './cardAccounting'
+import CardAccountingModal from './CardAccountingModal'
+
+const statusClass: Record<string, string> = { 회계반영: 'is-posted', 강제회계반영: 'is-forced' }
+const filters = ['전체', '미반영', '회계반영', '강제회계반영'] as const
+type Filter = typeof filters[number]
+
+export type PostingProps = {
+  orders: Order[]
+  expenses: Expense[]
+  cardAccounting: CardAccounting[]
+  onSave: (patch: Partial<WorkspaceData>) => Promise<boolean>
+  onCreateOrder: (onCreated: (order: Order) => void) => void
+}
+
+/**
+ * Status tabs, row selection and the 회계반영 / 강제회계반영 / 수정 actions shared by
+ * every Barobill list (법인카드, 전자세금계산서). Rows are filtered and posted in place.
+ */
+export function usePosting<T extends { id: string }>(rows: T[], toSource: (row: T) => PostingSource, { orders, expenses, cardAccounting, onSave, onCreateOrder }: PostingProps) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [modal, setModal] = useState<{ mode: 'post' | 'edit'; rows: PostingSource[] } | null>(null)
+  const [notice, setNotice] = useState('')
+  const [filter, setFilter] = useState<Filter>('미반영')
+  const [savingForced, setSavingForced] = useState(false)
+  const skippedNote = useRef('')
+  const entries = new Map(cardAccounting.map(entry => [entry.id, entry]))
+  const statusOf = (row: T) => entries.get(row.id)?.status ?? '미반영'
+  const pageRows = filter === '전체' ? rows : rows.filter(row => statusOf(row) === filter)
+  const filterCount = (value: Filter) => value === '전체' ? rows.length : rows.filter(row => statusOf(row) === value).length
+  const pageSelected = pageRows.filter(row => selectedIds.has(row.id)).length
+  const selectedRows = pageRows.filter(row => selectedIds.has(row.id))
+
+  function reset() { setSelectedIds(new Set()); setNotice('') }
+  function toggleRow(id: string, checked: boolean) {
+    setSelectedIds(current => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next })
+  }
+  function togglePage(checked: boolean) {
+    setSelectedIds(current => { const next = new Set(current); for (const row of pageRows) { if (checked) next.add(row.id); else next.delete(row.id) } return next })
+  }
+  async function save(inputs: CardAccountingInput[]) {
+    return onSave(applyCardAccounting(inputs, { cardAccounting, expenses, orders }))
+  }
+  // Rows already in another state are left alone so one click never overwrites earlier work.
+  function pick(allowed: string[], action: string) {
+    const picked = selectedRows.filter(row => allowed.includes(statusOf(row)))
+    skippedNote.current = selectedRows.length > picked.length ? ` 이미 처리된 ${selectedRows.length - picked.length}건은 제외했습니다. 변경은 수정 버튼을 사용하세요.` : ''
+    setNotice(picked.length === 0 ? `${action}할 수 있는 항목을 선택해 주세요.${skippedNote.current}` : skippedNote.current.trim())
+    return picked
+  }
+  function openPost() {
+    const picked = pick(['미반영', '강제회계반영'], '회계반영')
+    if (picked.length) setModal({ mode: 'post', rows: picked.map(toSource) })
+  }
+  function openEdit() {
+    const picked = selectedRows.filter(row => statusOf(row) !== '미반영')
+    setNotice(picked.length ? '' : '수정할 반영 항목을 선택해 주세요. 미반영 항목은 회계반영 버튼을 사용하세요.')
+    if (picked.length) setModal({ mode: 'edit', rows: picked.map(toSource) })
+  }
+  async function forcePost() {
+    const picked = pick(['미반영'], '강제회계반영')
+    if (!picked.length) return
+    setSavingForced(true)
+    const saved = await save(picked.map(row => ({ row: toSource(row), status: '강제회계반영', orderNo: '', memo: '' })))
+    setSavingForced(false)
+    if (!saved) { setNotice('저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'); return }
+    setNotice(`${picked.length}건을 강제회계반영했습니다.${skippedNote.current}`)
+    setSelectedIds(new Set())
+  }
+  async function submitModal(inputs: CardAccountingInput[]) {
+    try { if (!await save(inputs)) return '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.' }
+    catch (err) { return err instanceof Error ? err.message : '저장하지 못했습니다.' }
+    const posted = inputs.filter(input => input.status === '회계반영').length
+    setNotice(modal?.mode === 'post' ? `${posted}건을 회계반영했습니다.${skippedNote.current}` : `${inputs.length}건을 수정했습니다.`)
+    setModal(null)
+    setSelectedIds(new Set())
+    return null
+  }
+
+  const toolbar = <>
+    <div className="card-toolbar">
+      <div className="card-filter-tabs" role="tablist" aria-label="회계반영 상태로 보기">
+        {filters.map(value => <button key={value} type="button" role="tab" aria-selected={filter === value} className={`card-filter-tab ${statusClass[value] ?? ''}`} onClick={() => { setFilter(value); setSelectedIds(new Set()) }}>
+          {value}<span>{filterCount(value).toLocaleString('ko-KR')}</span>
+        </button>)}
+      </div>
+      <div className="card-accounting-actions">
+        <button className="primary-button" type="button" disabled={selectedIds.size === 0 || savingForced} onClick={openPost}>회계반영</button>
+        <button className="ghost-button card-force-button" type="button" disabled={selectedIds.size === 0 || savingForced} onClick={() => void forcePost()}>{savingForced ? '저장 중…' : '강제회계반영'}</button>
+        <button className="ghost-button" type="button" disabled={selectedIds.size === 0 || savingForced} onClick={openEdit}>수정</button>
+      </div>
+    </div>
+    {notice && <p className="card-accounting-notice" role="status">{notice}</p>}
+  </>
+  const selectAll = <input type="checkbox" aria-label="보이는 항목 전체 선택" disabled={pageRows.length === 0} checked={pageRows.length > 0 && pageSelected === pageRows.length} ref={input => { if (input) input.indeterminate = pageSelected > 0 && pageSelected < pageRows.length }} onChange={event => togglePage(event.target.checked)} />
+  const rowBox = (row: T, label: string) => <input type="checkbox" aria-label={`${label} 선택`} checked={selectedIds.has(row.id)} onChange={event => toggleRow(row.id, event.target.checked)} />
+  const statusChip = (row: T) => { const status = statusOf(row); return <span className={`card-accounting ${statusClass[status] ?? ''}`}>{status}</span> }
+  const modalElement = modal && <CardAccountingModal mode={modal.mode} rows={modal.rows} entries={entries} orders={orders} onSubmit={submitModal} onClose={() => setModal(null)} onCreateOrder={onCreateOrder} />
+  const emptyMessage = (none: string) => rows.length === 0 ? none : `이 페이지에 ${filter} 항목이 없습니다.`
+
+  return { entries, pageRows, selectedIds, setFilter, reset, toolbar, selectAll, rowBox, statusChip, modal: modalElement, emptyMessage }
+}

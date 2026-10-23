@@ -1,9 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { applyCardAccounting, cardExpenseId, findOrder, invalidOrderRows, missingOrderMessage } from './cardAccounting.ts'
+import { applyCardAccounting, cardExpenseId, cardPostingSource, findOrder, invalidOrderRows, missingOrderMessage } from './cardAccounting.ts'
 
 const orders = [{ id: 'o-1', orderNo: '26006', projectName: '공사' }, { id: 'o-2', orderNo: '26007', projectName: '다른 공사' }]
-const row = { id: 'approval-1', dateTime: '2026-10-05 09:10:44', approvalType: '승인', approvalNumber: '1', store: '주유소', storeNumber: '', amount: 88000, currency: 'KRW', supplyAmount: 0, vatAmount: 8000, serviceCharge: 0, memo: '', cardNumber: '3888' }
+const approval = { id: 'approval-1', dateTime: '2026-10-05 09:10:44', approvalType: '승인', approvalNumber: '1', store: '주유소', storeNumber: '', amount: 88000, currency: 'KRW', supplyAmount: 0, vatAmount: 8000, serviceCharge: 0, memo: '', cardNumber: '3888' }
+const row = cardPostingSource(approval)
 const empty = { cardAccounting: [], expenses: [], orders }
 
 test('order numbers must match the order ledger exactly after trimming', () => {
@@ -35,4 +36,11 @@ test('forced posting and reverting remove the linked expense but keep other expe
   assert.deepEqual(forced.cardAccounting, [{ id: 'approval-1', status: '강제회계반영', orderNo: '', memo: '', updatedAt: 'T2' }])
   const reverted = applyCardAccounting([{ row, status: '미반영', orderNo: '', memo: '' }], { ...posted, orders })
   assert.deepEqual(reverted, { cardAccounting: [], expenses: [other] })
+})
+
+test('tax invoices post as 전자세금계산서 expenses without a card number', () => {
+  const invoice = { id: 'inv-1', date: '2026-10-07', vendor: '연일종합철강(주)', supplyAmount: 1000000, vatAmount: 100000, amount: 1100000, kind: '전자세금계산서', cardNumber: '' }
+  const posted = applyCardAccounting([{ row: invoice, status: '회계반영', orderNo: '26006', memo: '철판' }], empty, 'T1')
+  assert.deepEqual(posted.expenses, [{ id: 'tax-inv-1', projectId: 'o-1', date: '2026-10-07', kind: '전자세금계산서', vendor: '연일종합철강(주)', memo: '철판', supplyAmount: 1000000, vatAmount: 100000, amount: 1100000 }])
+  assert.equal(posted.cardAccounting[0].expenseId, 'tax-inv-1')
 })

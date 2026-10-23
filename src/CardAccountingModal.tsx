@@ -1,8 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import type { CardApproval } from './cardTypes'
 import type { Order } from './orderTypes'
 import type { CardAccounting } from './workspaceTypes'
-import { findOrder, invalidOrderRows, missingOrderMessage, type CardAccountingChoice, type CardAccountingInput } from './cardAccounting'
+import { findOrder, invalidOrderRows, missingOrderMessage, type CardAccountingChoice, type CardAccountingInput, type PostingSource } from './cardAccounting'
 
 type Draft = { status: CardAccountingChoice; orderNo: string; memo: string }
 const money = (value: number) => value.toLocaleString('ko-KR', { maximumFractionDigits: 4 })
@@ -10,7 +9,7 @@ const statusChoices: CardAccountingChoice[] = ['회계반영', '강제회계반�
 
 export default function CardAccountingModal({ mode, rows, entries, orders, onSubmit, onClose, onCreateOrder }: {
   mode: 'post' | 'edit'
-  rows: CardApproval[]
+  rows: PostingSource[]
   entries: Map<string, CardAccounting>
   orders: Order[]
   onSubmit: (inputs: CardAccountingInput[]) => Promise<string | null>
@@ -19,7 +18,7 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
 }) {
   const [drafts, setDrafts] = useState<Record<string, Draft>>(() => Object.fromEntries(rows.map(row => {
     const entry = entries.get(row.id)
-    return [row.id, { status: mode === 'post' ? '회계반영' : entry?.status ?? '회계반영', orderNo: entry?.orderNo ?? '', memo: entry?.memo ?? '' }]
+    return [row.id, { status: mode === 'post' ? '회계반영' : entry?.status ?? '회계반영', orderNo: entry?.orderNo ?? '', memo: entry?.memo ?? row.defaultMemo ?? '' }]
   })))
   const [invalid, setInvalid] = useState<Set<string>>(() => new Set())
   const [pickerFor, setPickerFor] = useState<string | null>(null)
@@ -63,7 +62,7 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
     <form className="modal-panel form-panel card-accounting-modal" role="dialog" aria-modal="true" aria-labelledby="card-accounting-title" onSubmit={submit}>
       <div className="modal-heading">
         <div><h3 id="card-accounting-title">{mode === 'post' ? '회계반영' : '회계반영 수정'}</h3>
-          <span>{mode === 'post' ? `선택한 ${rows.length}건을 수주의 지출내역(법인카드)에 등록합니다.` : `선택한 ${rows.length}건의 반영 내용을 수정합니다.`}</span></div>
+          <span>{mode === 'post' ? `선택한 ${rows.length}건을 수주의 지출내역(${rows[0]?.kind ?? '법인카드'})에 등록합니다.` : `선택한 ${rows.length}건의 반영 내용을 수정합니다.`}</span></div>
         <button type="button" className="card-modal-close" aria-label="창 닫기" title="창 닫기" disabled={saving} onClick={onClose}>
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
         </button>
@@ -74,8 +73,8 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
             const draft = drafts[row.id]
             const needsOrder = draft.status === '회계반영'
             return <tr key={row.id}>
-              <td>{row.dateTime.slice(0, 10)}</td>
-              <td className="card-accounting-store">{row.store || '-'}</td>
+              <td>{row.date}</td>
+              <td className="card-accounting-store">{row.vendor || '-'}</td>
               <td className="card-accounting-amount">{money(row.amount)}</td>
               {mode === 'edit' && <td><select aria-label="상태" value={draft.status} onChange={event => update(row.id, { status: event.target.value as CardAccountingChoice })}>
                 {statusChoices.map(status => <option key={status} value={status}>{status}</option>)}

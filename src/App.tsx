@@ -6,6 +6,7 @@ import './design.css'
 import { getWorkCategory, workCategories, workProjectLabel, type WorkCategory } from './workLogCategories'
 import DeliveryPerformance from './DeliveryPerformance'
 import CorporateCards from './CorporateCards'
+import TaxInvoices from './TaxInvoices'
 import { printExpenseSheet } from './expensePrint'
 import { planColumns } from './printLayout'
 import type { Order, SharedOrderStore } from './orderTypes'
@@ -2344,20 +2345,13 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
             onSave={patch => updateWorkspace(patch)}
             onCreateOrder={openNewOrderModalFor}
           />}
-        {view === 'taxInvoices' && (
-          <section className="content-grid single">
-            <div className="panel full expense-source-panel">
-              <div className="panel-heading">
-                <h3>전자세금계산서 내역</h3>
-                <span className="expense-source-status">연동 준비 중</span>
-              </div>
-              <div className="expense-source-empty">
-                <strong>전자세금계산서 내역을 이곳에서 확인하세요.</strong>
-                <p>조회 연동을 준비하고 있습니다.</p>
-              </div>
-            </div>
-          </section>
-        )}
+        {view === 'taxInvoices' && <TaxInvoices
+            orders={orders}
+            expenses={expenses}
+            cardAccounting={cardAccounting}
+            onSave={patch => updateWorkspace(patch)}
+            onCreateOrder={openNewOrderModalFor}
+          />}
 
         {view === 'deliveries' && <DeliveryPerformance workspaceStore={workspaceStore} />}
         {view === 'home' && (

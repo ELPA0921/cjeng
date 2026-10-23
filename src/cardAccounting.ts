@@ -3,18 +3,35 @@ import type { Order } from './orderTypes.ts'
 import type { CardAccounting, CardAccountingStatus, Expense } from './workspaceTypes.ts'
 import { cardSupplyAmount } from './cardAmounts.ts'
 
+// A Barobill row (card approval or purchase tax invoice) as the posting flow sees it.
+export type PostingSource = {
+  id: string
+  date: string
+  vendor: string
+  supplyAmount: number | null
+  vatAmount: number | null
+  amount: number
+  kind: '법인카드' | '전자세금계산서'
+  cardNumber: string
+  defaultMemo?: string
+}
 export type CardAccountingChoice = CardAccountingStatus | '미반영'
-export type CardAccountingInput = { row: CardApproval; status: CardAccountingChoice; orderNo: string; memo: string }
+export type CardAccountingInput = { row: PostingSource; status: CardAccountingChoice; orderNo: string; memo: string }
 
 export const missingOrderMessage = '존재하지 않는 수주번호입니다.'
+
+export function cardPostingSource(row: CardApproval): PostingSource {
+  return { id: row.id, date: row.dateTime.slice(0, 10), vendor: row.store, supplyAmount: cardSupplyAmount(row).value, vatAmount: row.vatAmount, amount: row.amount, kind: '법인카드', cardNumber: row.cardNumber }
+}
 
 export function findOrder(orders: Order[], orderNo: string) {
   const value = orderNo.trim()
   return value ? orders.find(order => order.orderNo.trim() === value) : undefined
 }
 
-// One expense per approval, so posting the same card row twice can never duplicate it.
+// One expense per source row, so posting the same row twice can never duplicate it.
 export const cardExpenseId = (approvalId: string) => `card-${approvalId.slice(0, 32)}`
+export const postingExpenseId = (row: PostingSource) => row.kind === '법인카드' ? cardExpenseId(row.id) : `tax-${row.id.slice(0, 32)}`
 
 /** Returns the ids of rows whose order number blocks saving. */
 export function invalidOrderRows(inputs: CardAccountingInput[], orders: Order[]) {
@@ -22,8 +39,8 @@ export function invalidOrderRows(inputs: CardAccountingInput[], orders: Order[])
 }
 
 /**
- * Applies the chosen status to each card row. 회계반영 creates or updates the linked
- * 법인카드 expense on the order; 강제회계반영 and 미반영 remove it.
+ * Applies the chosen status to each row. 회계반영 creates or updates the linked
+ * expense on the order; 강제회계반영 and 미반영 remove it.
  */
 export function applyCardAccounting(
   inputs: CardAccountingInput[],
@@ -40,18 +57,17 @@ export function applyCardAccounting(
     if (status === '회계반영') {
       const order = findOrder(state.orders, orderNo)
       if (!order) throw new Error(missingOrderMessage)
-      const expenseId = previous?.expenseId ?? cardExpenseId(row.id)
-      const supply = cardSupplyAmount(row).value
+      const expenseId = previous?.expenseId ?? postingExpenseId(row)
       expenses.set(expenseId, {
         ...expenses.get(expenseId),
         id: expenseId,
         projectId: order.id,
-        date: row.dateTime.slice(0, 10),
-        kind: '법인카드',
-        vendor: row.store.trim() || '법인카드',
+        date: row.date,
+        kind: row.kind,
+        vendor: row.vendor.trim() || row.kind,
         memo: entry.memo,
-        cardNumber: row.cardNumber,
-        ...(supply === null ? {} : { supplyAmount: supply }),
+        ...(row.cardNumber ? { cardNumber: row.cardNumber } : {}),
+        ...(row.supplyAmount === null ? {} : { supplyAmount: row.supplyAmount }),
         ...(row.vatAmount === null ? {} : { vatAmount: row.vatAmount }),
         amount: row.amount,
       })

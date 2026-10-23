@@ -1,0 +1,86 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import type { PurchaseTaxInvoice, PurchaseTaxInvoicePage } from './taxInvoiceTypes'
+import type { PostingSource } from './cardAccounting'
+import { usePosting, type PostingProps } from './usePosting'
+import './CorporateCards.css'
+
+async function request<T>(input: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
+  const response = await fetch('/api/barobill-cards', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(body.error || '세금계산서 내역을 불러올 수 없습니다.')
+  return body as T
+}
+const money = (value: number | null) => value === null ? '-' : value.toLocaleString('ko-KR', { maximumFractionDigits: 4 })
+const invoiceSource = (row: PurchaseTaxInvoice): PostingSource => ({ id: row.id, date: row.writeDate, vendor: row.vendor, supplyAmount: row.supplyAmount, vatAmount: row.vatAmount, amount: row.amount, kind: '전자세금계산서', cardNumber: '', defaultMemo: row.itemName })
+
+export default function TaxInvoices(props: PostingProps) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const [startDate, setStartDate] = useState(`${today.slice(0, 7)}-01`)
+  const [endDate, setEndDate] = useState(today)
+  const [result, setResult] = useState<(PurchaseTaxInvoicePage & { environment: string }) | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const activeRequest = useRef<AbortController | null>(null)
+  const posting = usePosting(result?.records ?? [], invoiceSource, props)
+  useEffect(() => () => activeRequest.current?.abort(), [])
+
+  async function query(page = 1) {
+    if (loading) return
+    setError('')
+    if (!startDate || !endDate || endDate < startDate || (Date.parse(endDate) - Date.parse(startDate)) / 86400000 >= 200) { setError('조회 기간은 시작일부터 최대 200일로 설정해 주세요.'); return }
+    const controller = new AbortController()
+    activeRequest.current?.abort()
+    activeRequest.current = controller
+    setLoading(true); setResult(null); posting.reset()
+    try { setResult(await request<PurchaseTaxInvoicePage & { environment: string }>({ action: 'purchaseTaxInvoices', startDate, endDate, page }, controller.signal)) }
+    catch (err) { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : '세금계산서 조회에 실패했습니다.') }
+    finally { if (!controller.signal.aborted) setLoading(false) }
+  }
+  function submit(event: FormEvent) { event.preventDefault(); posting.setFilter('미반영'); void query() }
+  function clearResult() { setResult(null); setError(''); posting.reset() }
+
+  return <section className="content-grid single">
+    <div className="panel full">
+      <div className="panel-heading"><div><h3>전자세금계산서 매입내역</h3><span>바로빌이 홈택스에서 수집한 매입 세금계산서·계산서를 조회합니다.</span></div></div>
+      {result?.environment === 'test' && <p className="card-query-hint" role="status">바로빌 테스트 서버에 연결되어 있습니다.</p>}
+      <form className="card-query-form tax-query-form" onSubmit={submit}>
+        <label>시작일<input type="date" required value={startDate} disabled={loading} onChange={event => { setStartDate(event.target.value); clearResult() }} /></label>
+        <label>종료일<input type="date" required value={endDate} disabled={loading} onChange={event => { setEndDate(event.target.value); clearResult() }} /></label>
+        <button className="primary-button" type="submit" disabled={loading}>{loading ? '조회 중…' : '내역 조회'}</button>
+      </form>
+      <p className="card-query-hint">작성일자 기준 · 최대 200일 · 페이지당 100건 · 작성일자 오름차순</p>
+      {error && <p className="card-query-error" role="alert">{error}</p>}
+      {loading && <p role="status">바로빌에서 세금계산서를 불러오고 있습니다.</p>}
+      {result ? <>
+        <div className="card-results-heading"><strong>조회 결과 {result.total.toLocaleString('ko-KR')}건{posting.selectedIds.size > 0 && ` · ${posting.selectedIds.size.toLocaleString('ko-KR')}건 선택`}</strong><span>{result.startDate} ~ {result.endDate}</span></div>
+        {posting.toolbar}
+        <div className="table-wrap card-results-scroll" role="region" aria-label="매입 세금계산서" tabIndex={0}>
+          <table className="card-results-table"><thead><tr>
+            <th className="card-check">{posting.selectAll}</th>
+            <th>수주번호</th><th>작성일자 ↑</th><th>거래처</th><th>내용</th><th>공급가액</th><th>부가세</th><th>합계</th><th>사업자번호</th><th>회계반영</th>
+          </tr></thead>
+            <tbody>{posting.pageRows.map(row => {
+              const entry = posting.entries.get(row.id)
+              return <tr key={row.id} className={posting.selectedIds.has(row.id) ? 'card-row-selected' : undefined}>
+                <td className="card-check">{posting.rowBox(row, `${row.writeDate} ${row.vendor}`)}</td>
+                <td>{entry?.orderNo || '-'}</td>
+                <td title={`국세청 승인번호 ${row.approvalNumber}`}>{row.writeDate}</td>
+                <td>{row.vendor || '-'}{row.modified && <small className="tax-modified" title="수정 세금계산서">수정</small>}</td>
+                <td className={entry?.memo ? undefined : 'tax-item'}>{entry?.memo || row.itemName || '-'}</td>
+                <td>{money(row.supplyAmount)}</td><td>{money(row.vatAmount)}</td><td>{money(row.amount)}</td>
+                <td>{row.vendorCorpNum || '-'}</td>
+                <td>{posting.statusChip(row)}</td>
+              </tr>
+            })}
+              {posting.pageRows.length === 0 && <tr><td colSpan={10}>{posting.emptyMessage('해당 기간에 수집된 매입 세금계산서가 없습니다.')}</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <div className="card-pagination"><button className="ghost-button" disabled={loading || result.page <= 1} onClick={() => void query(result.page - 1)}>이전 페이지</button><span>{result.page} / {Math.max(1, result.totalPages)} 페이지</span><button className="ghost-button" disabled={loading || result.page >= result.totalPages} onClick={() => void query(result.page + 1)}>다음 페이지</button></div>
+        <p className="card-query-hint">내용 칸의 회색 글씨는 세금계산서 품목명이며, 회계반영할 때 내용의 기본값으로 들어갑니다.</p>
+        <p className="card-query-hint">회계반영하면 입력한 수주의 지출내역에 전자세금계산서 지출로 등록됩니다. 강제회계반영은 지출내역에 등록하지 않고 반영 처리만 합니다. 상태 보기는 현재 페이지(최대 100건) 안에서 거릅니다.</p>
+        {posting.modal}
+      </> : !loading && !error && <div className="expense-source-empty"><strong>기간을 선택한 뒤 내역 조회를 눌러주세요.</strong><p>홈택스에 신고된 매입 세금계산서를 확인할 수 있습니다.</p></div>}
+    </div>
+  </section>
+}

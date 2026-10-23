@@ -73,3 +73,6 @@
 .card-modal-close { flex: none; align-self: flex-start; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text-muted); cursor: pointer; }
 .card-modal-close:hover:not(:disabled) { border-color: var(--line); background: #f3f5f4; color: var(--text); }
 .card-modal-close:disabled { opacity: .4; cursor: default; }
+.tax-query-form label:first-child { flex: 0 1 auto; min-width: 0; }
+.tax-modified { margin-left: 6px; padding: 1px 5px; border-radius: 4px; color: #94570f; background: #fdf0dc; font-size: 10px; font-weight: 600; }
+.card-results-table td.tax-item { color: var(--text-muted); }

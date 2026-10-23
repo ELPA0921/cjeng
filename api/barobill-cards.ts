@@ -24,6 +24,10 @@ export function createCardHandler(deps = { readSession, sameOrigin, settings, cl
         res.end(JSON.stringify({ cards: await provider.cards(), environment: provider.environment }))
       }
       else if (input.action === 'approvals') res.end(JSON.stringify(await deps.client().approvals(input)))
+      else if (input.action === 'purchaseTaxInvoices') {
+        const provider = deps.client()
+        res.end(JSON.stringify({ ...await provider.purchaseTaxInvoices(input), environment: provider.environment }))
+      }
       else throw new CardInputError('조회 종류를 확인해 주세요.')
     } catch (error) {
       res.statusCode = error instanceof CardInputError ? 400 : 503

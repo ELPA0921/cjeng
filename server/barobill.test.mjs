@@ -99,3 +99,22 @@ test('card and approval ids stay the same when only the Barobill cert key change
   assert.deepEqual(await ids('test-key', 'stable'), await ids('production-key', 'stable'))
   assert.notDeepEqual(await ids('test-key', 'stable'), await ids('test-key', 'other'))
 })
+
+test('purchase tax invoices call the TI service per tax type, merge by 승인번호 and surface error codes', async () => {
+  const invoice = (key, date, name, total) => `<SimpleTaxInvoiceEx><NTSSendKey>${key}</NTSSendKey><WriteDate>${date}</WriteDate><ModifyCode></ModifyCode><InvoicerCorpNum>1234567890</InvoicerCorpNum><InvoicerCorpName>${name}</InvoicerCorpName><AmountTotal>${total / 1.1}</AmountTotal><TaxTotal>${total - total / 1.1}</TaxTotal><TotalAmount>${total}</TotalAmount><ItemName>철판</ItemName></SimpleTaxInvoiceEx>`
+  const calls = []
+  const client = createBarobillClient(config, async (url, init) => {
+    const body = new XMLParser({ removeNSPrefix: true, parseTagValue: false }).parse(init.body).Envelope.Body.GetPeriodTaxInvoicePurchaseList
+    calls.push({ url, taxType: body.TaxType, dateType: body.DateType, start: body.StartDate, user: body.UserID, id: body.ID })
+    const list = body.TaxType === '1' ? invoice('A2', '20261007', '연일종합철강(주)', 1100) + invoice('A1', '20261002', '대상레이져', 2200) : invoice('A1', '20261002', '대상레이져', 2200) + invoice('B1', '20261005', '농협', 500)
+    return reply('GetPeriodTaxInvoicePurchaseList', `<CurrentPage>1</CurrentPage><MaxIndex>2</MaxIndex><CountPerPage>100</CountPerPage><MaxPageNum>1</MaxPageNum><SimpleTaxInvoiceExList>${list}</SimpleTaxInvoiceExList>`)
+  })
+  const result = await client.purchaseTaxInvoices({ startDate: '2026-10-01', endDate: '2026-10-23' })
+  assert.deepEqual(calls.map(c => [c.url, c.taxType, c.dateType, c.start, c.user, c.id]), [['https://ws.baroservice.com/TI.asmx', '1', '1', '20261001', 'user', undefined], ['https://ws.baroservice.com/TI.asmx', '2', '1', '20261001', 'user', undefined]])
+  assert.deepEqual(result.records.map(r => [r.writeDate, r.vendor, r.amount]), [['2026-10-02', '대상레이져', 2200], ['2026-10-05', '농협', 500], ['2026-10-07', '연일종합철강(주)', 1100]])
+  assert.equal(result.records[0].vendorCorpNum, '123-45-67890'); assert.equal(result.total, 3)
+  const failing = createBarobillClient(config, async () => reply('GetPeriodTaxInvoicePurchaseList', '<CurrentPage>-26006</CurrentPage><MaxPageNum>0</MaxPageNum>'))
+  await assert.rejects(failing.purchaseTaxInvoices({ startDate: '2026-10-01', endDate: '2026-10-23' }), /-26006/)
+  const empty = createBarobillClient(config, async () => reply('GetPeriodTaxInvoicePurchaseList', '<CurrentPage>0</CurrentPage><MaxPageNum>0</MaxPageNum><SimpleTaxInvoiceExList></SimpleTaxInvoiceExList>'))
+  assert.equal((await empty.purchaseTaxInvoices({ startDate: '2026-10-01', endDate: '2026-10-23' })).total, 0)
+})
