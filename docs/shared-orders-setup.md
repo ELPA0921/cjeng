@@ -34,7 +34,19 @@ Apps Script의 ScriptLock 안에서 현재 시트 내용의 SHA-256 revision을 
 
 공유 연결을 끄려면 VITE_SHARED_ORDERS=false로 재배포합니다. 이 경우 기존 브라우저 저장 방식으로 돌아가며 공용 시트의 내용을 로컬로 자동 복사하지 않습니다.
 
-## 선택 가능한 Postgres 저장소
+## Postgres 저장소 (운영 중)
+
+2026-10-23부터 운영 사이트는 Vercel에 연결된 Neon Postgres(싱가포르)를 사용합니다. WORKSPACE_STORAGE=postgres이고 DATABASE_URL은 Vercel이 관리합니다. 서버 함수는 서울(icn1)에서 실행됩니다.
+
+- 수주대장은 cjeng_order_workspace 한 행에 저장합니다.
+- 나머지 공용 자료는 cjeng_workspace_records에 자료 한 건당 한 행으로 저장하고, 거래처 상태·수정은 cjeng_workspace_settings에 저장합니다. 저장할 때는 바뀐 행만 보내고 씁니다.
+- 공용 자료 전체에 하나의 revision(cjeng_workspace_meta)을 두어, 다른 직원이 먼저 저장한 뒤의 오래된 저장은 409 충돌로 막습니다.
+- 화면은 10초마다 revision만 확인하고, 바뀌었을 때만 자료를 다시 받습니다.
+- 테이블은 server/workspaceDb.ts의 ensureWorkspaceSchema가 만듭니다. SQL은 PGlite(내장 Postgres)로 테스트합니다.
+
+전환 직전의 구글 시트 자료는 지우지 않고 백업으로 남겨 두었습니다. 전환 이후의 변경은 시트에 반영되지 않으므로, WORKSPACE_STORAGE=sheets로 되돌리면 전환 이후 자료가 빠집니다.
+
+## (이전) 선택 가능한 Postgres 저장소
 
 기존 Postgres 어댑터도 유지됩니다. WORKSPACE_STORAGE=postgres, DATABASE_URL을 설정하고 npm run db:init로 전용 테이블을 준비할 수 있습니다. Sheets와 Postgres 사이의 자료 복사는 자동으로 수행하지 않습니다.
 
