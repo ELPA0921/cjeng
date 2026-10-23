@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { Order } from './orderTypes'
 import type { CardAccounting } from './workspaceTypes'
+import { adminOrders } from './adminExpenses'
 import { findOrder, invalidOrderRows, missingOrderMessage, type CardAccountingChoice, type CardAccountingInput, type PostingSource } from './cardAccounting'
 
 type Draft = { status: CardAccountingChoice; orderNo: string; memo: string }
@@ -26,7 +27,8 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const inputs = (): CardAccountingInput[] => rows.map(row => ({ row, ...drafts[row.id] }))
-  const sortedOrders = [...orders].sort((a, b) => b.orderNo.localeCompare(a.orderNo, 'ko-KR', { numeric: true }))
+  // 관리비 codes come first so they are easy to find among the 공사.
+  const sortedOrders = [...adminOrders(orders), ...[...orders].sort((a, b) => b.orderNo.localeCompare(a.orderNo, 'ko-KR', { numeric: true }))]
   const keyword = search.trim().toLowerCase()
   const pickerOrders = keyword ? sortedOrders.filter(order => [order.orderNo, order.projectName, order.client1, order.region].join(' ').toLowerCase().includes(keyword)) : sortedOrders
 

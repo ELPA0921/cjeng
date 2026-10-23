@@ -2,6 +2,7 @@ import type { CardApproval } from './cardTypes.ts'
 import type { Order } from './orderTypes.ts'
 import type { CardAccounting, CardAccountingStatus, Expense } from './workspaceTypes.ts'
 import { cardSupplyAmount } from './cardAmounts.ts'
+import { adminOrder, adminYearOfOrderNo } from './adminExpenses.ts'
 
 // A Barobill row (card approval or purchase tax invoice) as the posting flow sees it.
 export type PostingSource = {
@@ -26,7 +27,9 @@ export function cardPostingSource(row: CardApproval): PostingSource {
 
 export function findOrder(orders: Order[], orderNo: string) {
   const value = orderNo.trim()
-  return value ? orders.find(order => order.orderNo.trim() === value) : undefined
+  if (!value) return undefined
+  const adminYear = adminYearOfOrderNo(value)
+  return adminYear ? adminOrder(adminYear) : orders.find(order => order.orderNo.trim() === value)
 }
 
 // One expense per source row, so posting the same row twice can never duplicate it.

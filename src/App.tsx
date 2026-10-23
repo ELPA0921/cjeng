@@ -9,6 +9,7 @@ import CorporateCards from './CorporateCards'
 import TaxInvoices from './TaxInvoices'
 import { printExpenseSheet } from './expensePrint'
 import { planColumns } from './printLayout'
+import { adminOrder, adminOrders, adminProjectId, isAdminProject } from './adminExpenses'
 import type { Order, SharedOrderStore } from './orderTypes'
 import type { CardAccounting, Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
 import { defaultOrders, defaultExpenses, defaultWorkLogs, defaultPurchaseOrders } from './sampleData'
@@ -39,6 +40,7 @@ type CsvRecord = Record<string, string>
 type View = NavigationRoute['view']
 const expenseMenus = [
   ['expenses', '공사별 지출내역'],
+  ['adminExpenses', '관리 지출내역'],
   ['taxInvoices', '전자세금계산서 조회'],
   ['corporateCards', '법인카드 조회'],
 ] as const
@@ -828,7 +830,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     setWorkLogForm(current => ({ ...current, projectId: route.projectId }))
   }, [])
   const { canGoBack, canGoForward } = useBrowserNavigation({ view, year: orderYear, projectId: selectedProjectId, projectTab: projectDetailTab, month: workLogMonth }, restoreNavigation)
-  const navigateTo = (nextView: View) => setView(nextView)
+  const navigateTo = (nextView: View) => { setSelectedExpenseIds([]); setView(nextView) }
   const goBack = () => window.history.back()
   const goForward = () => window.history.forward()
 
@@ -869,11 +871,18 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
 
       return projectSort.direction === 'asc' ? result : -result
     })
-  const selectedProject = projectSummaries.find(
-    (project) => project.id === selectedProjectId,
-  )
+  // 관리 지출내역 shows the selected year's 일반관리비 (YY000) in place of a 공사.
+  const adminSummary = (order: Order) => {
+    const total = totalFor(order.id)
+    return { ...order, ...total, year: getOrderYear(order), manDays: total.hours / 8, status: getProjectStatus(order) }
+  }
+  const expenseProjectId = view === 'adminExpenses' ? adminProjectId(orderYear) : selectedProjectId
+  const selectedProject = view === 'adminExpenses'
+    ? adminSummary(adminOrder(orderYear))
+    : projectSummaries.find((project) => project.id === selectedProjectId)
+  const expenseProjectOptions = view === 'adminExpenses' ? adminOrders(orders).map(adminSummary) : yearlyProjectSummaries
   const filteredExpenses = [...expenses]
-    .filter((expense) => expense.projectId === selectedProjectId)
+    .filter((expense) => expense.projectId === expenseProjectId)
     .sort((a, b) => {
       const aValue =
         expenseSort.key === 'amount'
@@ -1294,6 +1303,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   }
 
   function selectProject(projectId: string) {
+    setSelectedExpenseIds([])
     setSelectedProjectId(projectId)
     setExpenseForm((current) => ({ ...current, projectId }))
     setWorkLogForm((current) => ({ ...current, projectId }))
@@ -1302,6 +1312,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   function switchOrderYear(nextYear: string) {
     setOrderYear(nextYear)
     setSelectedOrderIds([])
+    setSelectedExpenseIds([])
     const firstProject = orders.find((order) => getOrderYear(order) === nextYear)
     if (firstProject) {
       selectProject(firstProject.id)
@@ -1476,7 +1487,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
 
         return {
           id: `e-${crypto.randomUUID()}`,
-          projectId: selectedProjectId,
+          projectId: expenseProjectId,
           date: parseCsvDate(getCsvValue(record, ['일자'])),
           kind: normalizeExpenseKind(getCsvValue(record, ['구분']) || '기타'),
           vendor: getCsvValue(record, ['거래처']),
@@ -1929,7 +1940,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     setIsExpenseModalOpen(false)
     setExpenseForm((current) => ({
       ...current,
-      projectId: selectedProjectId,
+      projectId: expenseProjectId,
       date: today,
       kind: '법인카드',
       customKind: '',
@@ -1961,7 +1972,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     setEditingExpenseId(null)
     setExpenseForm((current) => ({
       ...current,
-      projectId: selectedProjectId,
+      projectId: expenseProjectId,
       date: today,
       kind: '법인카드',
       customKind: '',
@@ -2061,7 +2072,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
         expenseEditRevision,
       )
       if (!saved) return
-      setSelectedProjectId(expenseForm.projectId)
+      if (!isAdminProject(expenseForm.projectId)) setSelectedProjectId(expenseForm.projectId)
       setEditingExpenseId(null)
       setSelectedExpenseIds([])
       setExpenseForm((current) => ({
@@ -2095,7 +2106,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
       ...current,
     ], expenseEditRevision)
     if (!saved) return
-    setSelectedProjectId(expenseForm.projectId)
+    if (!isAdminProject(expenseForm.projectId)) setSelectedProjectId(expenseForm.projectId)
     setExpenseForm((current) => ({
       ...current,
       kind: '법인카드',
@@ -2280,6 +2291,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     ? `${orderYear}년 공사별 원가 현황`
                     : view === 'expenses'
                       ? `${orderYear}년 공사 내역`
+                      : view === 'adminExpenses'
+                        ? `${orderYear}년 관리 지출내역`
                       : view === 'worklogList'
                         ? '작업일보 전체조회'
                       : view === 'worklogs'
@@ -2308,7 +2321,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
               </>
             ) : view === 'orders' ||
               view === 'dashboard' ||
-              view === 'expenses' ? (
+              view === 'expenses' ||
+              view === 'adminExpenses' ? (
               <div className="year-switch" aria-label="수주년도">
                 {orderYears.map((year) => (
                   <button
@@ -3437,8 +3451,16 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           </section>
         )}
 
-        {view === 'expenses' && (
+        {(view === 'expenses' || view === 'adminExpenses') && (
           <section className="content-grid single">
+            {view === 'adminExpenses' ? (
+            <div className="panel full">
+              <div className="panel-heading">
+                <h3>{orderYear}년 일반관리비 ({selectedProject?.orderNo})</h3>
+                <span>공사가 아닌 회사 운영 비용입니다. 수주번호 {selectedProject?.orderNo}(으)로 회계반영한 내역이 이곳에 모입니다</span>
+              </div>
+            </div>
+            ) : (
             <div className="panel full">
               <div className="panel-heading">
                 <h3>{orderYear}년 공사 내역</h3>
@@ -3458,9 +3480,10 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                 </select>
               </label>
             </div>
+            )}
             <div className="panel full">
               <div className="panel-heading">
-                <h3>선택 공사 지출내역</h3>
+                <h3>{view === 'adminExpenses' ? '관리 지출내역' : '선택 공사 지출내역'}</h3>
                 <span>{formatMoney(selectedProject?.cost ?? 0)}</span>
               </div>
               <div className="contact-actions">
@@ -3595,7 +3618,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     </button>
                   </div>
                   <label>
-                    공사
+                    {view === 'adminExpenses' ? '관리비 년도' : '공사'}
                     <select
                       value={expenseForm.projectId}
                       onChange={(event) =>
@@ -3605,9 +3628,9 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                         })
                       }
                     >
-                      {yearlyProjectSummaries.map((order) => (
+                      {expenseProjectOptions.map((order) => (
                         <option key={order.id} value={order.id}>
-                          {formatProjectOption(order)}
+                          {view === 'adminExpenses' ? `${order.orderNo} · ${order.projectName}` : formatProjectOption(order)}
                         </option>
                       ))}
                     </select>
