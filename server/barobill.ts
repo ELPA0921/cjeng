@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto'
 import { XMLParser, XMLValidator } from 'fast-xml-parser'
 import type { ConnectedCard, CardApprovalPage } from '../src/cardTypes.ts'
 
-type Config = { certKey: string; corpNum: string; userId: string; test?: boolean }
+type Config = { certKey: string; idSecret: string; corpNum: string; userId: string; test?: boolean }
 type Fields = Record<string, string | number>
 type Row = Record<string, unknown>
 export class BarobillError extends Error {}
@@ -25,8 +25,9 @@ export function barobillConfig(): Config {
   const certKey = process.env.BAROBILL_CERT_KEY?.trim() ?? ''
   const corpNum = (process.env.BAROBILL_CORP_NUM ?? process.env.BAROBILL_CROP_NUM ?? '').replaceAll('-', '').trim()
   const userId = process.env.BAROBILL_USER_ID?.trim() ?? ''
-  if (!certKey || !/^\d{10}$/.test(corpNum) || !userId) throw new BarobillError('바로빌 인증 설정을 확인해 주세요.')
-  return { certKey, corpNum, userId, test: process.env.BAROBILL_ENV === 'test' }
+  const idSecret = process.env.BAROBILL_ID_SECRET?.trim() ?? ''
+  if (!certKey || !idSecret || !/^\d{10}$/.test(corpNum) || !userId) throw new BarobillError('바로빌 인증 설정을 확인해 주세요.')
+  return { certKey, idSecret, corpNum, userId, test: process.env.BAROBILL_ENV === 'test' }
 }
 
 export function validateCardQuery(input: Row) {
@@ -42,7 +43,9 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
   const namespace = 'http://ws.baroservice.com/'
   const endpoint = config.test ? 'https://testws.baroservice.com/CARD.asmx' : 'https://ws.baroservice.com/CARD.asmx'
   const parser = new XMLParser({ removeNSPrefix: true, parseTagValue: false, trimValues: false })
-  const token = (value: string) => createHmac('sha256', config.certKey).update(value).digest('hex')
+  // Card and approval ids are stored with accounting records, so they use a dedicated key
+  // that survives Barobill cert key reissues while still hiding the card number.
+  const token = (value: string) => createHmac('sha256', config.idSecret).update(value).digest('hex')
   async function call(method: 'GetCardsByAuthID' | 'GetApprovalHistories', fields: Fields): Promise<Row> {
     const params = { CERTKEY: config.certKey, CorpNum: config.corpNum, ID: config.userId, ...fields }
     const body = `<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><${method} xmlns="${namespace}">${Object.entries(params).map(([key, value]) => `<${key}>${escapeXml(value)}</${key}>`).join('')}</${method}></soap:Body></soap:Envelope>`

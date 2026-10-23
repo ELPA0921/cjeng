@@ -5,7 +5,7 @@ import { createBarobillClient, validateCardQuery } from './barobill.ts'
 import { createCardHandler } from '../api/barobill-cards.ts'
 import { sameOrigin } from './security.ts'
 
-const config = { certKey: 'test<&credential', corpNum: '1234567890', userId: 'user' }
+const config = { certKey: 'test<&credential', idSecret: 'id-secret', corpNum: '1234567890', userId: 'user' }
 const cardNum = '1234567890124858'
 const reply = (method, result) => new Response(`<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><${method}Response><${method}Result>${result}</${method}Result></${method}Response></soap:Body></soap:Envelope>`)
 const cardsXml = `<CardInfo><CardNum>${cardNum}</CardNum><CardType>C</CardType><CardCompanyName>테스트카드</CardCompanyName><Alias>현장</Alias><WebPwd>never-return</WebPwd></CardInfo><CardInfo><CardNum>1234567890129999</CardNum><CardType>P</CardType></CardInfo>`
@@ -87,4 +87,15 @@ test('all cards merges every page of every card by date and pages the result wit
   await assert.rejects(client.approvals({ cardId: 'all', startDate: '2026-10-01', endDate: '2026-10-23', page: 2 }), /페이지/)
   assert.equal(validateCardQuery({ cardId: 'all', startDate: '2026-10-01', endDate: '2026-10-02' }).cardId, 'all')
   assert.throws(() => validateCardQuery({ cardId: 'everything', startDate: '2026-10-01', endDate: '2026-10-02' }), /카드/)
+})
+
+test('card and approval ids stay the same when only the Barobill cert key changes', async () => {
+  const history = '<CurrentPage>1</CurrentPage><MaxIndex>1</MaxIndex><MaxPageNum>1</MaxPageNum><Histories><CardApprovalHistory><HistoryKey>k1</HistoryKey><ApprovalDT>20261022112233</ApprovalDT><ApprovalAmount>1000</ApprovalAmount></CardApprovalHistory></Histories>'
+  const ids = async (certKey, idSecret) => {
+    const client = createBarobillClient({ ...config, certKey, idSecret }, async (_url, init) => init.body.includes('<GetCardsByAuthID ') ? reply('GetCardsByAuthID', cardsXml) : reply('GetApprovalHistories', history))
+    const [card] = await client.cards()
+    return [card.id, (await client.approvals({ cardId: card.id, startDate: '2026-10-01', endDate: '2026-10-23' })).records[0].id]
+  }
+  assert.deepEqual(await ids('test-key', 'stable'), await ids('production-key', 'stable'))
+  assert.notDeepEqual(await ids('test-key', 'stable'), await ids('test-key', 'other'))
 })
