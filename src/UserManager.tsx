@@ -20,7 +20,7 @@ function NameCell({ member, busy, onSave }: { member: Member; busy: boolean; onS
     if (draft.trim() === member.name) { setDraft(member.name); return }
     if (!await onSave(draft)) setDraft(member.name)
   }
-  return <input className="user-manager-name" aria-label={`${member.email} 이름`} value={draft} maxLength={40} disabled={busy} placeholder="예: 홍길동 부장"
+  return <input className="user-manager-name" aria-label={`${member.email} 이름`} value={draft} maxLength={40} disabled={busy} placeholder="이름 입력"
     onChange={event => setDraft(event.target.value)} onBlur={() => void save()}
     onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { setDraft(member.name); event.currentTarget.blur() } }} />
 }
