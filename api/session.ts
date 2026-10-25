@@ -10,7 +10,7 @@ export default async function handler(req: Request, res: ServerResponse) {
     const config = settings()
     if (req.method === 'GET') {
       const user = await readSession(req)
-      res.end(JSON.stringify(user ? { user, canInitialize:user.email===config.allowed.values().next().value } : { user: null, clientId: config.clientId, nonce: createLoginNonce(res) }))
+      res.end(JSON.stringify(user ? { user, canInitialize:user.email===config.allowed.values().next().value, canManageUsers:user.role==='admin' } : { user: null, clientId: config.clientId, nonce: createLoginNonce(res) }))
       return
     }
     if (!sameOrigin(req, config.origin)) { res.statusCode = 403; res.end(JSON.stringify({ error: '요청한 접속 주소를 확인하세요.' })); return }
@@ -19,7 +19,7 @@ export default async function handler(req: Request, res: ServerResponse) {
     try {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
       const user = await signIn(req, res, body?.credential)
-      res.end(JSON.stringify({ user, canInitialize:user.email===config.allowed.values().next().value }))
+      res.end(JSON.stringify({ user, canInitialize:user.email===config.allowed.values().next().value, canManageUsers:user.role==='admin' }))
     } catch { res.statusCode = 401; res.end(JSON.stringify({ error: '접근이 허용된 직원 계정으로 다시 로그인해 주세요.' })) }
   } catch { res.statusCode = 503; res.end(JSON.stringify({ error: '공유 수주대장 연결 설정이 필요합니다. 관리자에게 문의하세요.' })) }
 }

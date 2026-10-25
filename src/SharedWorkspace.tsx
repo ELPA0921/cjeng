@@ -5,9 +5,10 @@ import type { WorkspaceData, WorkspaceSnapshot } from './workspaceTypes'
 import { browserWorkspace, mergeBrowserWorkspace } from './browserWorkspace'
 import { hasOps, workspaceOps } from './workspaceDiff'
 import './SharedWorkspace.css'
+import UserManager from './UserManager'
 
 type User = { email: string; name: string; sub: string }
-type Session = { user: User | null; clientId?: string; nonce?: string; canInitialize?: boolean }
+type Session = { user: User | null; clientId?: string; nonce?: string; canInitialize?: boolean; canManageUsers?: boolean }
 type OrderSnapshot = { orders: Order[]; revision: number | string }
 type Snapshot = OrderSnapshot & { workspace: WorkspaceSnapshot }
 type GoogleIdentity = { initialize: (config: { client_id: string; nonce: string; callback: (response: { credential: string }) => void }) => void; renderButton: (element: HTMLElement, config: { theme: string; size: string; text: string; locale: string }) => void; disableAutoSelect: () => void }
@@ -64,7 +65,8 @@ function GoogleButton({ clientId, nonce, onCredential }: { clientId: string; non
   return <><div ref={host} />{error && <p role="alert">{error}</p>}</>
 }
 
-function SignedInWorkspace({ user, canInitialize, onSignOut }: { user: User; canInitialize: boolean; onSignOut: () => Promise<void> }) {
+function SignedInWorkspace({ user, canInitialize, canManageUsers, onSignOut }: { user: User; canInitialize: boolean; canManageUsers: boolean; onSignOut: () => Promise<void> }) {
+  const [managingUsers, setManagingUsers] = useState(false)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const latest = useRef<Snapshot | null>(null)
   useEffect(() => { latest.current = snapshot }, [snapshot])
@@ -163,6 +165,7 @@ function SignedInWorkspace({ user, canInitialize, onSignOut }: { user: User; can
           <summary>관리</summary>
           <div className="shared-workspace-menu">
             <strong>{user.name}</strong><small>{user.email}</small>
+            {canManageUsers && <button type="button" className="ghost-button" onClick={event => { (event.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open'); setManagingUsers(true) }}>직원 계정 관리</button>}
             {canInitialize && snapshot?.workspace.initialized && <button type="button" className="ghost-button" disabled={saving} onClick={()=>void importBrowser()}>기존 브라우저 자료 추가</button>}
           </div>
         </details>
@@ -170,6 +173,7 @@ function SignedInWorkspace({ user, canInitialize, onSignOut }: { user: User; can
         <button type="button" className="ghost-button" disabled={saving} onClick={() => { setSignOutError(''); void onSignOut().catch(() => setSignOutError('로그아웃에 실패했습니다. 다시 시도해 주세요.')) }}>로그아웃</button>
       </div>
     </div>
+    {managingUsers && <UserManager me={user.email} onClose={() => setManagingUsers(false)} />}
     {(message || signOutError) && <p className="shared-workspace-message" role="status">{signOutError || message}</p>}
     {!snapshot ? <div className="workspace-login"><p>{message || '공유 수주대장을 불러오는 중입니다.'}</p><button className="ghost-button" onClick={() => void refresh()}>다시 불러오기</button></div>
       : !snapshot.workspace.initialized ? <div className="workspace-login"><section className="workspace-login-card"><h2>전체 업무 공유 연결</h2><p>기존 수주대장과 함께 지출·작업일보·납품실적·거래처를 공용으로 연결합니다. 이 브라우저의 원본은 보존됩니다.</p>{canInitialize ? <button type="button" className="primary-button" disabled={saving} onClick={()=>void importBrowser(true)}>기존 자료를 공용으로 연결</button> : <p>관리자가 기존 자료를 연결할 때까지 기다려 주세요.</p>}</section></div>
@@ -208,7 +212,7 @@ export default function SharedWorkspace() {
     setSession(null)
     await loadSession()
   }
-  if (session?.user) return <SignedInWorkspace key={session.user.sub} user={session.user} canInitialize={session.canInitialize===true} onSignOut={signOut} />
+  if (session?.user) return <SignedInWorkspace key={session.user.sub} user={session.user} canInitialize={session.canInitialize===true} canManageUsers={session.canManageUsers===true} onSignOut={signOut} />
   return <main className="workspace-login"><section className="workspace-login-card">
     <span className="workspace-login-brand">CHANGJO ENGINEERING</span>
     <h1>창조이엔지 공사 관리</h1>

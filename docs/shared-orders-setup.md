@@ -11,7 +11,7 @@
 5. Vercel Production에 아래 서버 환경변수를 설정합니다. 비밀값은 Secret으로 저장합니다.
    - GOOGLE_CLIENT_ID: Google 웹 클라이언트 ID
    - WORKSPACE_ORIGIN: 홈페이지의 정확한 HTTPS origin
-   - WORKSPACE_ALLOWED_EMAILS: 허용할 직원 이메일을 쉼표로 구분
+   - WORKSPACE_ALLOWED_EMAILS: 허용할 직원 이메일을 쉼표로 구분. 첫 주소는 소유자(항상 관리자, 삭제 불가)입니다. Postgres 저장소에서는 처음 한 번 cjeng_users 표를 채우는 데 쓰이고, 이후 계정 추가·삭제·관리자 지정은 사이트의 관리 → 직원 계정 관리에서 합니다.
    - WORKSPACE_SESSION_SECRET: 암호학적으로 생성한 32자 이상의 임의 비밀값
    - WORKSPACE_STORAGE=sheets
    - WORKSPACE_SHEETS_ENDPOINT: 실제 배포된 https://script.google.com/macros/s/…/exec 주소

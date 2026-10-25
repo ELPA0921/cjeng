@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { SignJWT } from 'jose'
 import { validateOrders, validateRevision } from './orderValidation.ts'
 import { createOrdersHandler } from '../api/orders.ts'
-import { readSession, sameOrigin, settings } from './security.ts'
+import { readSession, sameOrigin, settings, useUserDirectory } from './security.ts'
+import { createUserDirectory } from './userAccess.ts'
 
 const origin = 'https://workspace.example.test'
 Object.assign(process.env, {
@@ -11,6 +12,8 @@ Object.assign(process.env, {
   WORKSPACE_SESSION_SECRET: 'test-only-secret-012345678901234567890123456789',
   WORKSPACE_ORIGIN: origin, WORKSPACE_ALLOWED_EMAILS: 'allowed@example.test',
 })
+// Sessions check the account list; tests use the environment list without a database.
+useUserDirectory(createUserDirectory({ sql: () => null, envEmails: () => [...settings().allowed] }))
 const order = { id: 'id-1', year: '2023', orderNo: '23001', orderDate: '', expectedCompletionDate: '2023-09-19', manager: '', client1: '', client2: '', region: '', projectName: '테스트 공사', note: '쉼표,\n비고', status: '준공' }
 
 function response() {
