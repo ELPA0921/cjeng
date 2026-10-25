@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { PGlite } from '@electric-sql/pglite'
-import { createUserDirectory, normalizeEmail } from './userAccess.ts'
+import { createUserDirectory, normalizeEmail, normalizeName } from './userAccess.ts'
 import { createUsersHandler } from '../api/users.ts'
 
 function neonLike(db) {
@@ -42,6 +42,25 @@ test('admins add, promote and remove accounts; the owner and their own account a
   assert.throws(() => normalizeEmail('a,b@c.com'), /이메일/)
 })
 
+test('any account, the owner and the acting admin included, can carry a name note', async () => {
+  const sql = neonLike(new PGlite())
+  const dir = directoryOn(sql)
+  await dir.put('owner@x.com', 'park@gmail.com', 'staff', '  박철수   과장 ')
+  const nameOf = async email => (await dir.members()).find(m => m.email === email).name
+  assert.equal(await nameOf('park@gmail.com'), '박철수 과장')
+  await dir.rename('owner@x.com', '유수열 부장')
+  await dir.rename('KIM@x.com', '김영희 대리')
+  assert.equal(await nameOf('owner@x.com'), '유수열 부장')
+  assert.equal(await nameOf('kim@x.com'), '김영희 대리')
+  await dir.rename('kim@x.com', '')
+  assert.equal(await nameOf('kim@x.com'), '')
+  await assert.rejects(dir.rename('nobody@x.com', '누구'), /등록되지/)
+  assert.throws(() => normalizeName('가'.repeat(41)), /40자/)
+  assert.throws(() => normalizeName(5), /40자/)
+  // Naming never changes a role.
+  assert.equal(await dir.roleOf('owner@x.com'), 'admin')
+})
+
 test('other instances see changes once their short cache expires', async () => {
   const sql = neonLike(new PGlite())
   const clock = { t: 0 }
@@ -65,6 +84,8 @@ test('only admins reach the account API and writes need the same origin', async 
   assert.equal((await call('POST', { email: 'pysun2000@gmail.com', role: 'admin' }, 'https://evil')).statusCode, 403)
   const added = await call('POST', { email: 'pysun2000@gmail.com', role: 'admin' })
   assert.equal(added.body.members.find(m => m.email === 'pysun2000@gmail.com').role, 'admin')
+  assert.equal((await call('PATCH', { email: 'pysun2000@gmail.com', name: '선 부장' })).body.members.find(m => m.email === 'pysun2000@gmail.com').name, '선 부장')
+  assert.equal((await call('PATCH', { email: 'owner@x.com', name: '소유' }, 'https://evil')).statusCode, 403)
   assert.equal((await call('DELETE', { email: 'owner@x.com' })).statusCode, 400)
   assert.equal((await call('DELETE', { email: 'pysun2000@gmail.com' })).body.members.length, 3)
 })
