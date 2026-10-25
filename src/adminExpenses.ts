@@ -1,6 +1,6 @@
 import type { Order } from './orderTypes.ts'
 
-// Order numbers ending in 000 (23000, 24000, ...) are each year's 일반관리비, not a 공사.
+// Order numbers ending in 000 (23000, 24000, ...) are each year's 관리비, not a 공사.
 // Their expenses live under a fixed per-year id instead of an order in 수주대장.
 const adminPrefix = 'admin-'
 
@@ -17,7 +17,7 @@ export function adminOrder(year: string): Order {
   return {
     id: adminProjectId(year), year, orderNo: `${year.slice(2)}000`,
     orderDate: `${year}-01-01`, expectedCompletionDate: `${year}-12-31`,
-    manager: '', client1: '', client2: '', region: '', projectName: `${year}년 일반관리비`, note: '',
+    manager: '', client1: '', client2: '', region: '', projectName: `${year}년 관리비 지출내역`, note: '',
   }
 }
 

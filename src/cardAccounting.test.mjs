@@ -47,7 +47,7 @@ test('tax invoices post as 전자세금계산서 expenses without a card number'
 
 test('YY000 order numbers post to that year\'s 관리비 without a 수주대장 entry', () => {
   assert.equal(findOrder(orders, '26000')?.id, 'admin-2026')
-  assert.equal(findOrder(orders, '23000')?.projectName, '2023년 일반관리비')
+  assert.equal(findOrder(orders, '23000')?.projectName, '2023년 관리비 지출내역')
   assert.equal(findOrder(orders, '26001'), undefined)
   assert.deepEqual(invalidOrderRows([{ row, status: '회계반영', orderNo: '25000', memo: '' }], orders), [])
   const posted = applyCardAccounting([{ row, status: '회계반영', orderNo: '26000', memo: '사무용품' }], empty, 'T1')

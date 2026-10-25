@@ -41,7 +41,7 @@ type CsvRecord = Record<string, string>
 type View = NavigationRoute['view']
 const expenseMenus = [
   ['expenses', '공사별 지출내역'],
-  ['adminExpenses', '관리 지출내역'],
+  ['adminExpenses', '관리비 지출내역'],
   ['taxInvoices', '전자세금계산서 조회'],
   ['corporateCards', '법인카드 조회'],
 ] as const
@@ -872,7 +872,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
 
       return projectSort.direction === 'asc' ? result : -result
     })
-  // 관리 지출내역 shows the selected year's 일반관리비 (YY000) in place of a 공사.
+  // 관리비 지출내역 shows the selected year's 관리비 (YY000) in place of a 공사.
   const adminSummary = (order: Order) => {
     const total = totalFor(order.id)
     return { ...order, ...total, year: getOrderYear(order), manDays: total.hours / 8, status: getProjectStatus(order) }
@@ -1106,8 +1106,10 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   }
   // The paper 지출내역서 lists supply amounts in date order regardless of the on-screen sort.
   // A personal card's "card number" holds the owner's name, so it moves to 비고.
+  // 관리비 sheets are titled by their name alone ("2026년 관리비 지출내역"), without the 26000_ prefix.
   const printExpenses = () => printExpenseSheet(
-    [selectedProject?.orderNo, selectedProject?.client1, selectedProject?.projectName].filter(Boolean).join('_'),
+    selectedProject && isAdminProject(selectedProject.id) ? selectedProject.projectName
+      : [selectedProject?.orderNo, selectedProject?.client1, selectedProject?.projectName].filter(Boolean).join('_'),
     [...filteredExpenses].sort((a, b) => a.date.localeCompare(b.date)).map(expense => {
       const personal = normalizeExpenseKind(expense.kind) === '개인카드'
       return {
@@ -2298,7 +2300,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     : view === 'expenses'
                       ? `${orderYear}년 공사 내역`
                       : view === 'adminExpenses'
-                        ? `${orderYear}년 관리 지출내역`
+                        ? `${orderYear}년 관리비 지출내역`
                       : view === 'worklogList'
                         ? '작업일보 전체조회'
                       : view === 'worklogs'
@@ -3462,7 +3464,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
             {view === 'adminExpenses' ? (
             <div className="panel full">
               <div className="panel-heading">
-                <h3>{orderYear}년 일반관리비 ({selectedProject?.orderNo})</h3>
+                <h3>{orderYear}년 관리비 지출내역 ({selectedProject?.orderNo})</h3>
                 <span>공사가 아닌 회사 운영 비용입니다. 수주번호 {selectedProject?.orderNo}(으)로 회계반영한 내역이 이곳에 모입니다</span>
               </div>
             </div>
@@ -3489,7 +3491,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
             )}
             <div className="panel full">
               <div className="panel-heading">
-                <h3>{view === 'adminExpenses' ? '관리 지출내역' : '선택 공사 지출내역'}</h3>
+                <h3>{view === 'adminExpenses' ? '관리비 지출내역' : '선택 공사 지출내역'}</h3>
                 <span>{formatMoney(selectedProject?.cost ?? 0)}</span>
               </div>
               <div className="contact-actions">

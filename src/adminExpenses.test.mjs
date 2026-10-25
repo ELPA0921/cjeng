@@ -13,5 +13,5 @@ test('only YY000 numbers are 관리비 codes', () => {
 
 test('there is a 관리비 entry for every order year and the current year, newest first', () => {
   const orders = [{ id: 'a', year: '2023', orderNo: '23001' }, { id: 'b', year: '2025', orderNo: '25003' }, { id: 'c', orderNo: '24002' }, { id: 'd', orderNo: '2026-001' }, { id: 'e', orderNo: 'x' }]
-  assert.deepEqual(adminOrders(orders, '2026').map(order => `${order.orderNo}:${order.projectName}`), ['26000:2026년 일반관리비', '25000:2025년 일반관리비', '24000:2024년 일반관리비', '23000:2023년 일반관리비'])
+  assert.deepEqual(adminOrders(orders, '2026').map(order => `${order.orderNo}:${order.projectName}`), ['26000:2026년 관리비 지출내역', '25000:2025년 관리비 지출내역', '24000:2024년 관리비 지출내역', '23000:2023년 관리비 지출내역'])
 })
