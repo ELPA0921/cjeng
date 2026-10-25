@@ -4,7 +4,8 @@
 .user-manager-add label:first-child { flex: 1; min-width: 220px; }
 .user-manager-add label:nth-child(2) { width: 160px; }
 .user-manager-add input, .user-manager-add select, .user-manager-list select { min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--text); font: inherit; font-size: 13px; }
-.user-manager-add button { flex-shrink: 0; min-height: 40px; }
+.user-manager-add button { flex-shrink: 0; min-height: 40px; padding: 0 22px; }
+.user-manager-list select { min-width: 86px; }
 .user-manager-hint { margin: 0 0 12px; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
 .user-manager-message { margin: 0 0 12px; color: #1f6b46; font-size: 13px; }
 .user-manager-list table { min-width: 660px; }
