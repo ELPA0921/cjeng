@@ -38,18 +38,19 @@ export function expenseSheetHtml(title: string, rows: ExpenseSheetRow[]) {
     return `<section class="sheet"><h1><span class="fit">${escapeHtml(title)}</span></h1><table>${head}<tbody>${lines.join('')}</tbody></table></section>`
   }).join('')
   return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
-    @page { size: A4 portrait; margin: 12mm 10mm; }
+    /* A deep top margin keeps the title clear of binder punch holes. */
+    @page { size: A4 portrait; margin: 25mm 10mm 10mm; }
     * { box-sizing: border-box; }
     html, body { margin: 0; color: #000; font-family: "Malgun Gothic", "맑은 고딕", sans-serif; }
     .sheet { width: 190mm; break-after: page; page-break-after: always; }
     .sheet:last-child { break-after: auto; page-break-after: auto; }
     h1 { height: 14mm; margin: 0; overflow: hidden; font-size: 16pt; font-weight: 700; line-height: 14mm; text-align: center; white-space: nowrap; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    th, td { height: 9.6mm; padding: 0 1.5mm; overflow: hidden; border: 0.6pt solid #000; font-size: 10pt; white-space: nowrap; }
+    th, td { height: 9.4mm; padding: 0 1.5mm; overflow: hidden; border: 0.6pt solid #000; font-size: 10pt; white-space: nowrap; }
     th { height: 10.5mm; font-weight: 700; text-align: center; }
     .center { text-align: center; } .left { text-align: left; } .num { text-align: right; }
     .fit { display: inline-block; max-width: none; }
-    @media screen { body { background: #e5e7eb; } .sheet { margin: 12px auto; padding: 12mm 10mm; width: 210mm; background: #fff; } }
+    @media screen { body { background: #e5e7eb; } .sheet { margin: 12px auto; padding: 25mm 10mm 10mm; width: 210mm; background: #fff; } }
   </style></head><body>${body}<script>
     // Shrink text that would overflow its cell so the grid keeps its exact size.
     function fitText() {
