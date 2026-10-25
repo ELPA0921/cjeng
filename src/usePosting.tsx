@@ -117,7 +117,8 @@ export function usePosting<T extends { id: string }>(rows: T[], { orders, expens
     <div className="card-toolbar">
       <div className="card-filter-tabs" role="tablist" aria-label="회계반영 상태로 보기">
         {filters.map(value => <button key={value} type="button" role="tab" aria-selected={filter === value} className={`card-filter-tab ${statusClass[value] ?? ''}`} onClick={() => { setFilter(value); setSelectedIds(new Set()) }}>
-          {value}<span>{filterCount(value).toLocaleString('ko-KR')}</span>
+          {/* Only the 미반영 count is a to-do; the other totals carry no meaning. */}
+          {value}{value === '미반영' && <span>{filterCount(value).toLocaleString('ko-KR')}</span>}
         </button>)}
       </div>
       <div className="card-accounting-actions">
