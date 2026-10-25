@@ -35,14 +35,16 @@ export function expenseSheetHtml(title: string, rows: ExpenseSheetRow[]) {
       ...Array.from({ length: blanks }, () => `<tr>${columns.map(() => '<td></td>').join('')}</tr>`),
       ...(last ? [`<tr class="total"><td colspan="3" class="center">합계</td>${cell(money(total), 'num')}<td colspan="2"></td></tr>`] : []),
     ]
-    return `<section class="sheet"><h1><span class="fit">${escapeHtml(title)}</span></h1><table>${head}<tbody>${lines.join('')}</tbody></table></section>`
+    return `<section class="sheet"><h1><span class="fit">${escapeHtml(title)}</span></h1><table>${head}<tbody>${lines.join('')}</tbody></table><div class="page-number">${index + 1}/${pages.length}</div></section>`
   }).join('')
   return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
-    /* A deep top margin keeps the title clear of binder punch holes. */
-    @page { size: A4 portrait; margin: 25mm 10mm 10mm; }
+    /* A zero page margin leaves the browser no room for its date/title/URL header
+       and footer; each sheet draws its own margins and page number instead.
+       The deep top margin keeps the title clear of binder punch holes. */
+    @page { size: A4 portrait; margin: 0; }
     * { box-sizing: border-box; }
     html, body { margin: 0; color: #000; font-family: "Malgun Gothic", "맑은 고딕", sans-serif; }
-    .sheet { width: 190mm; break-after: page; page-break-after: always; }
+    .sheet { position: relative; width: 210mm; height: 296mm; padding: 25mm 10mm 10mm; overflow: hidden; break-after: page; page-break-after: always; }
     .sheet:last-child { break-after: auto; page-break-after: auto; }
     h1 { height: 14mm; margin: 0; overflow: hidden; font-size: 16pt; font-weight: 700; line-height: 14mm; text-align: center; white-space: nowrap; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
@@ -50,7 +52,8 @@ export function expenseSheetHtml(title: string, rows: ExpenseSheetRow[]) {
     th { height: 10.5mm; font-weight: 700; text-align: center; }
     .center { text-align: center; } .left { text-align: left; } .num { text-align: right; }
     .fit { display: inline-block; max-width: none; }
-    @media screen { body { background: #e5e7eb; } .sheet { margin: 12px auto; padding: 25mm 10mm 10mm; width: 210mm; background: #fff; } }
+    .page-number { position: absolute; right: 10mm; bottom: 3.5mm; font-size: 8pt; }
+    @media screen { body { background: #e5e7eb; } .sheet { margin: 12px auto; background: #fff; } }
   </style></head><body>${body}<script>
     // Shrink text that would overflow its cell so the grid keeps its exact size.
     function fitText() {
