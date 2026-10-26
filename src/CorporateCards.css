@@ -1,6 +1,6 @@
 .card-query-form { display: flex; align-items: end; flex-wrap: wrap; gap: 14px; }
 .card-query-form label { display: grid; gap: 7px; font-size: 12px; color: var(--text-muted); }
-.card-query-form label:first-child { flex: 1; min-width: 210px; }
+.card-query-form label:first-child { flex: 0 1 230px; min-width: 180px; }
 .card-query-form input, .card-query-form select { min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--text); font: inherit; }
 .card-query-form button { min-height: 42px; }
 .card-query-hint { margin: 14px 0; color: var(--text-muted); font-size: 12px; line-height: 1.7; }
@@ -68,7 +68,7 @@
 .card-order-picker-list p { color: var(--text-muted); font-size: 13px; }
 .card-row-selected td { background: #f3f8f5; }
 .card-cancelled { color: #ad4a39; font-weight: 700; }
-@media (max-width: 720px) { .card-query-form label:first-child { flex-basis: 100%; } .card-query-form label { flex: 1; } }
+@media (max-width: 720px) { .card-query-form label:first-child, .card-query-form .card-search { flex-basis: 100%; } .card-query-form label { flex: 1; } .card-query-form .card-search input { width: 100%; } }
 .card-modal-close { flex: none; align-self: flex-start; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text-muted); cursor: pointer; }
 .card-modal-close:hover:not(:disabled) { border-color: var(--line); background: #f3f5f4; color: var(--text); }
 .card-modal-close:disabled { opacity: .4; cursor: default; }
@@ -76,6 +76,10 @@
 .tax-modified { margin-left: 6px; padding: 1px 5px; border-radius: 4px; color: #94570f; background: #fdf0dc; font-size: 10px; font-weight: 600; }
 .card-results-table td.tax-item { color: var(--text-muted); }
 .card-search { display: flex; align-items: center; gap: 10px; margin: 14px 0 8px; }
+/* In the query form the search box fills the rest of the row, right-aligned. */
+.card-query-form .card-search { flex: 1 1 240px; justify-content: flex-end; margin: 0; }
+.card-query-form .card-search input { width: min(320px, 100%); min-height: 42px; }
+.card-query-form .card-search span { white-space: nowrap; }
 .card-search input { width: min(360px, 100%); min-height: 38px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--text); font: inherit; font-size: 13px; }
 .card-search span { color: var(--text-muted); font-size: 12px; }
 /* The tax invoice table has no card number column, so its status column is the ninth. */

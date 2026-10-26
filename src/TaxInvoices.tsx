@@ -53,8 +53,8 @@ export default function TaxInvoices(props: PostingProps) {
         <label>시작일<input type="date" required value={startDate} disabled={loading} onChange={event => { setStartDate(event.target.value); clearResult() }} /></label>
         <label>종료일<input type="date" required value={endDate} disabled={loading} onChange={event => { setEndDate(event.target.value); clearResult() }} /></label>
         <button className="primary-button" type="submit" disabled={loading}>{loading ? '조회 중…' : '내역 조회'}</button>
+        {posting.searchBox(!!result)}
       </form>
-      {posting.searchBox(!!result)}
       <p className="card-query-hint">작성일자 기준 · 최대 200일 · 기간 전체를 한 번에 불러와 검색합니다</p>
       {error && <p className="card-query-error" role="alert">{error}</p>}
       {loading && <p role="status">바로빌에서 세금계산서를 불러오고 있습니다.</p>}
