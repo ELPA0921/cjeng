@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import type { Order } from './orderTypes'
 import type { CardAccounting } from './workspaceTypes'
 import { adminOrders } from './adminExpenses'
+import OrderNoField from './OrderNoField'
 import { findOrder, invalidOrderRows, missingOrderMessage, type CardAccountingChoice, type CardAccountingInput, type PostingSource } from './cardAccounting'
 
 type Draft = { status: CardAccountingChoice; orderNo: string; memo: string }
@@ -86,8 +87,8 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
               </select></td>}
               <td className="card-accounting-wide" data-label="수주번호">
                 <div className="card-order-field">
-                  <input aria-label="수주번호" aria-invalid={invalid.has(row.id)} value={draft.orderNo} disabled={!needsOrder} placeholder={needsOrder ? '수주번호' : '-'}
-                    onChange={event => update(row.id, { orderNo: event.target.value })} onBlur={() => checkOrder(row.id)} />
+                  <OrderNoField value={draft.orderNo} orders={sortedOrders} disabled={!needsOrder} invalid={invalid.has(row.id)}
+                    onChange={orderNo => update(row.id, { orderNo })} onBlur={() => checkOrder(row.id)} />
                   <button type="button" className="ghost-button card-order-search" aria-label="수주번호 찾기" title="수주번호 찾기" disabled={!needsOrder} onClick={() => { setSearch(''); setPickerFor(row.id) }}>
                     <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="2" /><path d="m16 16 4.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                   </button>
