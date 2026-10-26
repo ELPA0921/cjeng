@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import ModalClose from './ModalClose'
 import './UserManager.css'
 
 type Role = 'admin' | 'staff'
@@ -59,7 +60,7 @@ export default function UserManager({ me, onClose }: { me: string; onClose: () =
     <section className="modal-panel user-manager" role="dialog" aria-modal="true" aria-labelledby="user-manager-title">
       <div className="modal-heading user-manager-heading">
         <div><h3 id="user-manager-title">직원 계정 관리</h3><span>로그인할 수 있는 구글 계정과 권한을 관리합니다.</span></div>
-        <button type="button" className="ghost-button" onClick={onClose}>닫기</button>
+        <ModalClose onClose={onClose} />
       </div>
       <form className="user-manager-add" onSubmit={add}>
         <label>구글 계정 이메일<input type="email" required value={email} disabled={busy} placeholder="name@gmail.com" onChange={event => setEmail(event.target.value)} /></label>

@@ -10,6 +10,7 @@ import TaxInvoices from './TaxInvoices'
 import { printExpenseSheet } from './expensePrint'
 import { planColumns } from './printLayout'
 import { adminOrder, adminOrders, adminProjectId, adminYearOfProject, isAdminProject } from './adminExpenses'
+import ModalClose from './ModalClose'
 import { syncEditedExpense, unlinkDeletedExpenses } from './cardAccounting'
 import type { Order, SharedOrderStore } from './orderTypes'
 import type { CardAccounting, Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
@@ -2618,13 +2619,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                         <h3>{editingVendorKey ? '거래처 수정' : '거래처 등록'}</h3>
                         <span>{vendorForm.company || '업체명 없음'}</span>
                       </div>
-                      <button
-                        className="ghost-button"
-                        type="button"
-                        onClick={closeVendorModal}
-                      >
-                        닫기
-                      </button>
+                      <ModalClose onClose={closeVendorModal} />
                     </div>
 
                     <div className="two-columns">
@@ -2912,7 +2907,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   <h3 id="bulk-order-status-title">상태 일괄 변경</h3>
                   <span>선택한 수주 {selectedOrderCount}건에 같은 상태를 적용합니다.</span>
                 </div>
-                <button className="ghost-button" type="button" onClick={() => setIsBulkOrderStatusOpen(false)}>닫기</button>
+                <ModalClose onClose={() => setIsBulkOrderStatusOpen(false)} />
               </div>
               <p className="bulk-order-status-targets">
                 {orders.filter(order => selectedOrderIds.includes(order.id)).map(order => order.orderNo).join(', ')}
@@ -2954,13 +2949,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                       : '수주대장에 새 공사를 추가'}
                   </span>
                 </div>
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={closeOrderModal}
-                >
-                  닫기
-                </button>
+                <ModalClose onClose={closeOrderModal} />
               </div>
 
               <div className="three-columns">
@@ -3599,13 +3588,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                       <h3>{editingExpenseId ? '지출 수정' : '지출 등록'}</h3>
                       <span>카드사용 또는 세금계산서</span>
                     </div>
-                    <button
-                      className="ghost-button"
-                      type="button"
-                      onClick={cancelExpenseEdit}
-                    >
-                      닫기
-                    </button>
+                    <ModalClose onClose={cancelExpenseEdit} />
                   </div>
                   <label>
                     {view === 'adminExpenses' ? '관리비 년도' : '공사'}
@@ -4021,13 +4004,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                         {selectedCalendarWork.category}
                       </span>
                     </div>
-                    <button
-                      className="ghost-button"
-                      type="button"
-                      onClick={() => setSelectedCalendarWork(null)}
-                    >
-                      닫기
-                    </button>
+                    <ModalClose onClose={() => setSelectedCalendarWork(null)} />
                   </div>
                   <div className="table-wrap">
                     <table className="worklog-detail-table">
@@ -4074,13 +4051,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   <h3>작업일보 등록</h3>
                   <span>공통 작업정보를 한 번 입력하고 작업자만 추가</span>
                 </div>
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => setIsWorkLogModalOpen(false)}
-                >
-                  닫기
-                </button>
+                <ModalClose onClose={() => setIsWorkLogModalOpen(false)} />
               </div>
               <label>
                 공사

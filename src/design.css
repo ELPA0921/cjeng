@@ -139,6 +139,11 @@ input[type='checkbox'] { accent-color: #1d7656; }
 .modal-panel { border-radius: 20px; padding: 28px; box-shadow: var(--shadow-panel); }
 .modal-heading { padding-bottom: 18px; border-bottom: 1px solid var(--line); }
 .modal-heading h3 { font-size: 20px; letter-spacing: -.7px; }
+/* Every window closes from an X at its top right (or Esc), on phones too. */
+.modal-heading:has(> .modal-close) { flex-direction: row; align-items: flex-start; }
+.modal-close { flex: none; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.modal-close:hover:not(:disabled) { border-color: var(--line); background: #f3f5f4; color: var(--text); }
+.modal-close:disabled { opacity: .4; cursor: default; }
 .modal-actions { padding-top: 18px; border-top: 1px solid var(--line); }
 .project-hero { border-radius: 16px; background: #e7f5ee; border-color: #cfe6da; }
 .project-hero h3 { font-size: 24px; }
