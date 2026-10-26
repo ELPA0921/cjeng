@@ -78,6 +78,10 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
           <tbody>{rows.map(row => {
             const draft = drafts[row.id]
             const needsOrder = draft.status === '회계반영'
+            // A tax invoice's item name is pre-filled as 내용; clicking the field clears it for
+            // typing, and leaving it empty puts the item name back.
+            const defaultMemo = row.defaultMemo ?? ''
+            const showingDefault = !!defaultMemo && draft.memo === defaultMemo
             return <tr key={row.id}>
               <td>{row.date}</td>
               <td className="card-accounting-store">{row.vendor || '-'}</td>
@@ -95,7 +99,10 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
                 </div>
                 {invalid.has(row.id) && <small className="card-order-error" role="alert">{missingOrderMessage}</small>}
               </td>
-              <td className="card-accounting-wide" data-label="내용"><input aria-label="내용" value={draft.memo} disabled={draft.status === '미반영'} placeholder="내용" onChange={event => update(row.id, { memo: event.target.value })} /></td>
+              <td className="card-accounting-wide" data-label="내용"><input aria-label="내용" className={showingDefault ? 'card-memo-default' : undefined} title={showingDefault ? '클릭하면 지우고 새로 입력합니다' : undefined} value={draft.memo} disabled={draft.status === '미반영'} placeholder={defaultMemo || '내용'}
+                onFocus={() => { if (showingDefault) update(row.id, { memo: '' }) }}
+                onBlur={() => { if (defaultMemo && !draft.memo.trim()) update(row.id, { memo: defaultMemo }) }}
+                onChange={event => update(row.id, { memo: event.target.value })} /></td>
             </tr>
           })}</tbody>
         </table>
