@@ -94,6 +94,12 @@ button:focus-visible, a:focus-visible { outline: 3px solid #1d7656; outline-offs
 .home-list { gap: 0; }
 .home-list-item { padding: 15px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; min-height: 73px; }
 .home-list-item:last-child { border-bottom: 0; }
+/* 최근 수주 fills the height set by its neighbour: the list adds no height of its own,
+   and rows that do not fit wrap into a hidden second column, so no row is cut in half. */
+.home-panel:has(.home-list-fill) { display: flex; flex-direction: column; }
+.home-list-fill { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; flex-wrap: wrap; align-content: flex-start; overflow: hidden; }
+.home-list-fill .home-list-item { flex: none; width: 100%; }
+@media (max-width: 720px) { .home-list-fill { flex: none; flex-wrap: nowrap; } .home-list-fill .home-list-item:nth-child(n+6) { display: none; } }
 .home-list-item:hover { background: #f3faf6; }
 .home-list-item strong { font-size: 12px; font-weight: 650; }
 .home-list-item small { font-size: 10px; margin-top: 6px; }

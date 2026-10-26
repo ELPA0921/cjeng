@@ -953,9 +953,10 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     .filter(project => project.status === '진행중')
     .sort((a, b) => compareText(b.orderDate, a.orderDate))
   const activeProjectCount = activeProjects.length
+  // Enough to fill the panel beside 진행중인 공사; the list shows only the rows that fit.
   const recentProjects = [...projectSummaries]
     .sort((a, b) => compareText(b.orderDate, a.orderDate))
-    .slice(0, 5)
+    .slice(0, 20)
   const calendarDays = getMonthDays(workLogMonth)
   const calendarWorkLogs = workLogs.filter((workLog) =>
     workLog.date.startsWith(workLogMonth),
@@ -2393,7 +2394,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     전체보기
                   </button>
                 </div>
-                <div className="home-list">
+                <div className="home-list home-list-fill">
                   {recentProjects.map((project) => (
                     <button
                       className="home-list-item"
