@@ -2378,11 +2378,6 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
         {view === 'deliveries' && <DeliveryPerformance workspaceStore={workspaceStore} />}
         {view === 'home' && (
           <section className="home-view">
-            <section className="welcome-banner">
-              <div><p className="section-kicker">YOUR WORK, IN VIEW</p><h1>오늘의 현장, 한눈에.</h1><p>진행 중인 공사와 지출 흐름을 살펴보고<br className="mobile-break" /> 다음 업무를 시작하세요.</p><button className="welcome-action" type="button" onClick={openNewOrderModal}><Icon name="plus" /> 수주 등록하기 <Icon name="arrow" /></button></div>
-              <div className="progress-visual"><div className="progress-ring" role="img" aria-label={`전체 수주 중 진행 중 공사 ${activeProjectCount}건`} style={{ background: `conic-gradient(#1d7656 0% ${orders.length ? activeProjectCount / orders.length * 100 : 0}%, #dbe9de 0% 100%)` }}><div><span>진행 중인 공사</span><strong>{activeProjectCount}<small>건</small></strong><span>전체 {orders.length}건 중</span></div></div><span className="visual-caption"><i /> 현장 진행 현황</span></div>
-            </section>
-
             <section className="home-grid">
               <article className="panel home-panel">
                 <div className="panel-heading">
