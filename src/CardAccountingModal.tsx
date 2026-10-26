@@ -8,6 +8,9 @@ type Draft = { status: CardAccountingChoice; orderNo: string; memo: string }
 const money = (value: number) => value.toLocaleString('ko-KR', { maximumFractionDigits: 4 })
 const statusChoices: CardAccountingChoice[] = ['회계반영', '강제회계반영', '미반영']
 
+// 26028 and 2026-028 sort as the same year and number.
+const orderNoKey = (orderNo: string) => /^\d{5}$/.test(orderNo.trim()) ? `20${orderNo.trim().slice(0, 2)}-${orderNo.trim().slice(2)}` : orderNo.trim()
+
 export default function CardAccountingModal({ mode, rows, entries, orders, onSubmit, onClose, onCreateOrder }: {
   mode: 'post' | 'edit'
   rows: PostingSource[]
@@ -27,8 +30,8 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const inputs = (): CardAccountingInput[] => rows.map(row => ({ row, ...drafts[row.id] }))
-  // 관리비 codes come first so they are easy to find among the 공사.
-  const sortedOrders = [...adminOrders(orders), ...[...orders].sort((a, b) => b.orderNo.localeCompare(a.orderNo, 'ko-KR', { numeric: true }))]
+  // Newest order number first; each year's 관리비 code (26000) lands after that year's 공사.
+  const sortedOrders = [...adminOrders(orders), ...orders].sort((a, b) => orderNoKey(b.orderNo).localeCompare(orderNoKey(a.orderNo), 'ko-KR', { numeric: true }))
   const keyword = search.trim().toLowerCase()
   const pickerOrders = keyword ? sortedOrders.filter(order => [order.orderNo, order.projectName, order.client1, order.region].join(' ').toLowerCase().includes(keyword)) : sortedOrders
 
