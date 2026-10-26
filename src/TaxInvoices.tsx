@@ -50,9 +50,9 @@ export default function TaxInvoices(props: PostingProps) {
       <div className="panel-heading"><div><h3>전자세금계산서 매입내역</h3><span>바로빌이 홈택스에서 수집한 매입 세금계산서·계산서를 조회합니다.</span></div></div>
       {result?.environment === 'test' && <p className="card-query-hint" role="status">바로빌 테스트 서버에 연결되어 있습니다.</p>}
       <form className="card-query-form tax-query-form" onSubmit={submit}>
+        {posting.searchBox(!!result)}
         <label>시작일<input type="date" required value={startDate} disabled={loading} onChange={event => { setStartDate(event.target.value); clearResult() }} /></label>
         <label>종료일<input type="date" required value={endDate} disabled={loading} onChange={event => { setEndDate(event.target.value); clearResult() }} /></label>
-        {posting.searchBox(!!result)}
         <button className="primary-button" type="submit" disabled={loading}>{loading ? '조회 중…' : '내역 조회'}</button>
       </form>
       <p className="card-query-hint">작성일자 기준 · 최대 200일 · 기간 전체를 한 번에 불러와 검색합니다</p>

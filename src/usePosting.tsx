@@ -112,10 +112,10 @@ export function usePosting<T extends { id: string }>(rows: T[], { orders, expens
 
   /** Sits inside the query form: Enter runs the query until results are loaded, then only filters. */
   const searchBox = (loaded: boolean) => <div className="card-search">
-    {loaded && words.length > 0 && <span role="status">{found.length.toLocaleString('ko-KR')}건 일치</span>}
     <input type="search" aria-label="조회 내역 검색" placeholder="거래처, 내용, 수주번호, 금액, 날짜 검색" value={search}
       onChange={event => { setSearch(event.target.value); setSelectedIds(new Set()) }}
       onKeyDown={event => { if (event.key === 'Enter' && loaded) event.preventDefault() }} />
+    {loaded && words.length > 0 && <span role="status">{found.length.toLocaleString('ko-KR')}건 일치</span>}
   </div>
   const toolbar = <>
     <div className="card-toolbar">

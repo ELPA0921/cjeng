@@ -67,6 +67,7 @@ export default function CorporateCards(props: PostingProps) {
       </div>
       {environment === 'test' && <p className="card-query-hint" role="status">바로빌 테스트 서버에 연결되어 있습니다. 테스트 서버에 등록된 카드의 내역만 조회합니다.</p>}
       <form className="card-query-form" onSubmit={submit}>
+        {posting.searchBox(!!result)}
         <label>법인카드<select value={cardId} disabled={busy || cards.length === 0} onChange={event => { setCardId(event.target.value); clearResult() }}>
           {cards.length === 0 && <option value="">{loadingCards ? '카드 목록을 불러오는 중…' : '조회할 법인카드가 없습니다'}</option>}
           {cards.length > 0 && <option value="all">전체 카드</option>}
@@ -74,7 +75,6 @@ export default function CorporateCards(props: PostingProps) {
         </select></label>
         <label>시작일<input type="date" required value={startDate} disabled={busy} onChange={event => { setStartDate(event.target.value); clearResult() }} /></label>
         <label>종료일<input type="date" required value={endDate} disabled={busy} onChange={event => { setEndDate(event.target.value); clearResult() }} /></label>
-        {posting.searchBox(!!result)}
         <button className="primary-button" type="submit" disabled={busy || !cardId}>{loading ? '조회 중…' : '내역 조회'}</button>
       </form>
       <p className="card-query-hint">최대 200일 · 기간 전체를 한 번에 불러와 검색합니다</p>
