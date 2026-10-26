@@ -23,7 +23,7 @@ export default function CardAccountingModal({ mode, rows, entries, orders, onSub
 }) {
   const [drafts, setDrafts] = useState<Record<string, Draft>>(() => Object.fromEntries(rows.map(row => {
     const entry = entries.get(row.id)
-    return [row.id, { status: mode === 'post' ? '회계반영' : entry?.status ?? '회계반영', orderNo: entry?.orderNo ?? '', memo: entry?.memo ?? row.defaultMemo ?? '' }]
+    return [row.id, { status: mode === 'post' ? '회계반영' : entry?.status ?? '회계반영', orderNo: entry?.orderNo ?? '', memo: entry?.memo || row.defaultMemo || '' }]
   })))
   const [invalid, setInvalid] = useState<Set<string>>(() => new Set())
   const [pickerFor, setPickerFor] = useState<string | null>(null)
