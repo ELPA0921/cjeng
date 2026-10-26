@@ -45,6 +45,12 @@ const expenseMenus = [
   ['taxInvoices', '전자세금계산서 조회'],
   ['corporateCards', '법인카드 조회'],
 ] as const
+// 거래관리: 물품구입처 and 발주처 are the two halves of the contacts screen.
+const tradeMenus = [
+  ['deliveries', '납품실적'],
+  ['contacts', '물품구입처'],
+  ['orderContacts', '발주처'],
+] as const
 type ProjectDetailTab = 'worklogs' | 'expenses' | 'purchases'
 type ContactTab = 'purchase' | 'order'
 type SortDirection = 'asc' | 'desc'
@@ -635,7 +641,6 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   )
   const [projectDetailTab, setProjectDetailTab] =
     useState<ProjectDetailTab>(initialNavigation?.projectTab ?? 'worklogs')
-  const [contactTab, setContactTab] = useState<ContactTab>('purchase')
   const [selectedVendorKeys, setSelectedVendorKeys] = useState<string[]>([])
   const [vendorSearchScope, setVendorSearchScope] =
     useState<VendorSearchScope>('all')
@@ -830,6 +835,18 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     setExpenseForm(current => ({ ...current, projectId: route.projectId }))
     setWorkLogForm(current => ({ ...current, projectId: route.projectId }))
   }, [])
+  const isContactsView = view === 'contacts' || view === 'orderContacts'
+  const contactTab: ContactTab = view === 'orderContacts' ? 'order' : 'purchase'
+  // Selections and open forms belong to one contact list; drop them whenever the list
+  // changes, including through the browser's back and forward buttons.
+  const [shownContactTab, setShownContactTab] = useState<ContactTab>(contactTab)
+  if (shownContactTab !== contactTab) {
+    setShownContactTab(contactTab)
+    setSelectedVendorKeys([])
+    setEditingVendorKey(null)
+    setIsVendorModalOpen(false)
+    if (contactTab === 'order' && vendorSearchScope === 'item') setVendorSearchScope('all')
+  }
   const { canGoBack, canGoForward } = useBrowserNavigation({ view, year: orderYear, projectId: selectedProjectId, projectTab: projectDetailTab, month: workLogMonth }, restoreNavigation)
   const navigateTo = (nextView: View) => { setSelectedExpenseIds([]); setView(nextView) }
   const goBack = () => window.history.back()
@@ -1366,16 +1383,6 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
       direction:
         current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
     }))
-  }
-
-  function switchContactTab(nextTab: ContactTab) {
-    setContactTab(nextTab)
-    setSelectedVendorKeys([])
-    setEditingVendorKey(null)
-    setIsVendorModalOpen(false)
-    if (nextTab === 'order' && vendorSearchScope === 'item') {
-      setVendorSearchScope('all')
-    }
   }
 
   function toggleAllVendors() {
@@ -2225,17 +2232,20 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
         <nav className="nav-tabs" aria-label="주요 메뉴">
           {([
             ['home', '홈'], ['orders', '수주대장'], ['dashboard', '공사현황'],
-            ['expenses', '지출내역'], ['worklogs', '작업일보'], ['deliveries', '납품실적'], ['contacts', '거래처내역'],
-          ] as const).map(([target, label]) => (
-            <Fragment key={target}>
-            <button className={view === target || (target === 'worklogs' && view === 'worklogList') || (target === 'expenses' && expenseMenus.some(([screen]) => screen === view)) ? 'active' : ''}
-              aria-current={view === target || (target === 'worklogs' && view === 'worklogList') || (target === 'expenses' && expenseMenus.some(([screen]) => screen === view)) ? 'page' : undefined}
+            ['expenses', '지출내역'], ['worklogs', '작업일보'], ['deliveries', '거래관리'],
+          ] as const).map(([target, label]) => {
+            // 지출내역 and 거래관리 open their sub-menu while one of their screens is shown.
+            const menus = target === 'expenses' ? expenseMenus : target === 'deliveries' ? tradeMenus : null
+            const inGroup = view === target || (target === 'worklogs' && view === 'worklogList') || !!menus?.some(([screen]) => screen === view)
+            return <Fragment key={target}>
+            <button className={inGroup ? 'active' : ''}
+              aria-current={inGroup ? 'page' : undefined}
               type="button" onClick={() => navigateTo(target)}>
-              <Icon name={target} /><span>{label}</span>{target === 'orders' && <small>{orders.length}</small>}
+              <Icon name={target === 'deliveries' ? 'contacts' : target} /><span>{label}</span>{target === 'orders' && <small>{orders.length}</small>}
             </button>
-            {target === 'expenses' && expenseMenus.some(([screen]) => screen === view) && (
-              <nav className="expense-subnav" aria-label="지출내역 하위 메뉴">
-                {expenseMenus.map(([screen, title]) => (
+            {menus && inGroup && (
+              <nav className="expense-subnav" aria-label={`${label} 하위 메뉴`}>
+                {menus.map(([screen, title]) => (
                   <button key={screen} type="button" className={view === screen ? 'active' : ''}
                     aria-current={view === screen ? 'page' : undefined} onClick={() => navigateTo(screen)}>
                     {title}
@@ -2244,7 +2254,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
               </nav>
             )}
             </Fragment>
-          ))}
+          })}
         </nav>
         <div className="sidebar-footer"><span className="workspace-avatar">창</span><span>주식회사 창조이엔지<small>공사 관리 시스템</small></span></div>
       </aside>
@@ -2273,14 +2283,12 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           </div>
           <div>
             <p className="eyebrow">
-              {expenseMenus.some(([screen]) => screen === view) ? '지출내역' : view === 'deliveries' ? '납품실적' : view === 'home'
+              {expenseMenus.some(([screen]) => screen === view) ? '지출내역' : tradeMenus.some(([screen]) => screen === view) ? '거래관리' : view === 'home'
                 ? '홈'
                 : view === 'orders'
                 ? '수주대장'
                 : view === 'project'
                   ? '공사 상세'
-                  : view === 'contacts'
-                    ? '거래처 내역'
                     : view === 'dashboard'
                       ? '공사현황'
                       : view === 'expenses'
@@ -2290,12 +2298,10 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                         : '작업일보'}
             </p>
             <h2>
-              {view === 'taxInvoices' ? '전자세금계산서 조회' : view === 'corporateCards' ? '법인카드 조회' : view === 'deliveries' ? '납품실적' : view === 'home'
+              {view === 'taxInvoices' ? '전자세금계산서 조회' : view === 'corporateCards' ? '법인카드 조회' : tradeMenus.find(([screen]) => screen === view)?.[1] ?? (view === 'home'
                 ? '전체 현황'
                 : view === 'orders'
                 ? `${orderYear}년 수주대장`
-                : view === 'contacts'
-                  ? '거래처 내역'
                   : view === 'dashboard'
                     ? `${orderYear}년 공사별 원가 현황`
                     : view === 'expenses'
@@ -2306,7 +2312,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                         ? '작업일보 전체조회'
                       : view === 'worklogs'
                         ? '작업일보 달력'
-                        : selectedProject?.projectName}
+                        : selectedProject?.projectName)}
             </h2>
           </div>
           <div className="topbar-actions">
@@ -2315,7 +2321,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                 <span>진행중 {activeProjectCount}건</span>
                 <span>전체 {orders.length}건</span>
               </>
-            ) : view === 'contacts' ? (
+            ) : isContactsView ? (
               <>
                 <span>
                   물품구입처{' '}
@@ -2455,38 +2461,18 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           </section>
         )}
 
-        {view === 'contacts' && (
+        {isContactsView && (
           <section className="content-grid single">
             <div className="panel wide">
               <div className="panel-heading">
                 <div>
-                  <h3>거래처 내역</h3>
-                  <span>물품구입처와 발주처 탭만 표시</span>
-                </div>
-                <div className="contact-tabs" aria-label="거래처 구분">
-                  <button
-                    className={contactTab === 'purchase' ? 'active' : ''}
-                    type="button"
-                    onClick={() => switchContactTab('purchase')}
-                  >
-                    물품구입처
-                    <span>
-                      {purchaseVendorContacts.length +
-                        customVendorContacts.purchase.length}
-                      건
-                    </span>
-                  </button>
-                  <button
-                    className={contactTab === 'order' ? 'active' : ''}
-                    type="button"
-                    onClick={() => switchContactTab('order')}
-                  >
-                    발주처
-                    <span>
-                      {orderVendorContacts.length + customVendorContacts.order.length}
-                      건
-                    </span>
-                  </button>
+                  <h3>{contactTab === 'purchase' ? '물품구입처' : '발주처'}</h3>
+                  <span>
+                    {contactTab === 'purchase'
+                      ? purchaseVendorContacts.length + customVendorContacts.purchase.length
+                      : orderVendorContacts.length + customVendorContacts.order.length}
+                    건
+                  </span>
                 </div>
               </div>
 
