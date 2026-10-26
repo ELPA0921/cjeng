@@ -41,8 +41,9 @@ function validatePeriod(input: Row) {
   const startDate = text(input.startDate), endDate = text(input.endDate)
   const validDate = (day: string) => /^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(Date.parse(day)) && new Date(day).toISOString().slice(0, 10) === day
   if (!validDate(startDate) || !validDate(endDate) || endDate < startDate || (Date.parse(endDate) - Date.parse(startDate)) / 86400000 >= 200) throw new CardInputError('조회 기간은 시작일부터 최대 200일로 설정해 주세요.')
-  const page = input.page ?? 1
-  if (!Number.isInteger(page) || Number(page) < 1 || Number(page) > 10000) throw new CardInputError('조회 페이지를 확인해 주세요.')
+  // page 'all' returns the whole period at once so the screen can search and filter all of it.
+  const page = input.page === 'all' ? 0 : input.page ?? 1
+  if (!Number.isInteger(page) || Number(page) < 0 || Number(page) > 10000) throw new CardInputError('조회 페이지를 확인해 주세요.')
   return { startDate, endDate, page: Number(page) }
 }
 
@@ -113,7 +114,7 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
   }
   async function everyApproval(card: Row, query: { startDate: string; endDate: string }) {
     const first = await approvalPage(card, query, 1)
-    if (first.pages > maxPagesPerCard) throw new CardInputError('전체 카드로 보기에는 내역이 너무 많습니다. 조회 기간을 줄이거나 카드를 선택해 주세요.')
+    if (first.pages > maxPagesPerCard) throw new CardInputError('내역이 너무 많습니다. 조회 기간을 줄여 주세요.')
     const records = [...first.records]
     for (let page = 2; page <= first.pages; page++) records.push(...(await approvalPage(card, query, page)).records)
     return records
@@ -163,6 +164,7 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
       }
       if (!accepted) throw await failure('TI', '세금계산서 조회', invalidTaxTypeCode)
       const records = [...byApproval.values()].sort((a, b) => a.writeDate.localeCompare(b.writeDate) || a.vendor.localeCompare(b.vendor, 'ko-KR'))
+      if (!query.page) return { records, page: 1, totalPages: 1, total: records.length, startDate: query.startDate, endDate: query.endDate }
       const totalPages = Math.ceil(records.length / 100)
       if (query.page > Math.max(1, totalPages)) throw new CardInputError('조회 페이지를 확인해 주세요.')
       return { records: records.slice((query.page - 1) * 100, query.page * 100), page: query.page, totalPages, total: records.length, startDate: query.startDate, endDate: query.endDate }
@@ -175,12 +177,17 @@ export function createBarobillClient(config: Config, transport: typeof fetch = f
         // Barobill pages per card, so merge every card by date and page the result here.
         const records = (await Promise.all(cards.map(card => everyApproval(card, query)))).flat()
           .sort((a, b) => a.dateTime.localeCompare(b.dateTime) || a.cardNumber.localeCompare(b.cardNumber))
+        if (!query.page) return { records, page: 1, totalPages: 1, total: records.length, card: { id: allCardsId, company: '전체 카드', number: '', alias: '' }, startDate: query.startDate, endDate: query.endDate }
         const totalPages = Math.ceil(records.length / 100)
         if (query.page > Math.max(1, totalPages)) throw new CardInputError('카드와 조회 페이지를 확인해 주세요.')
         return { records: records.slice((query.page - 1) * 100, query.page * 100), page: query.page, totalPages, total: records.length, card: { id: allCardsId, company: '전체 카드', number: '', alias: '' }, startDate: query.startDate, endDate: query.endDate }
       }
       const card = cards.find(row => token(text(row.CardNum)) === query.cardId)
       if (!card) throw new CardInputError('조회 권한이 있는 법인카드를 다시 선택해 주세요.')
+      if (!query.page) {
+        const records = await everyApproval(card, query)
+        return { records, page: 1, totalPages: 1, total: records.length, card: safeCard(card), startDate: query.startDate, endDate: query.endDate }
+      }
       const { records, total, pages } = await approvalPage(card, query, query.page)
       return { records, page: query.page, totalPages: pages, total, card: safeCard(card), startDate: query.startDate, endDate: query.endDate }
     },

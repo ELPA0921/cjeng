@@ -30,7 +30,7 @@ export default function TaxInvoices(props: PostingProps) {
   const posting = usePosting(result?.records ?? [], props, invoiceView)
   useEffect(() => () => activeRequest.current?.abort(), [])
 
-  async function query(page = 1) {
+  async function query() {
     if (loading) return
     setError('')
     if (!startDate || !endDate || endDate < startDate || (Date.parse(endDate) - Date.parse(startDate)) / 86400000 >= 200) { setError('조회 기간은 시작일부터 최대 200일로 설정해 주세요.'); return }
@@ -38,7 +38,7 @@ export default function TaxInvoices(props: PostingProps) {
     activeRequest.current?.abort()
     activeRequest.current = controller
     setLoading(true); setResult(null); posting.reset()
-    try { setResult(await request<PurchaseTaxInvoicePage & { environment: string }>({ action: 'purchaseTaxInvoices', startDate, endDate, page }, controller.signal)) }
+    try { setResult(await request<PurchaseTaxInvoicePage & { environment: string }>({ action: 'purchaseTaxInvoices', startDate, endDate, page: 'all' }, controller.signal)) }
     catch (err) { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : '세금계산서 조회에 실패했습니다.') }
     finally { if (!controller.signal.aborted) setLoading(false) }
   }
@@ -54,7 +54,8 @@ export default function TaxInvoices(props: PostingProps) {
         <label>종료일<input type="date" required value={endDate} disabled={loading} onChange={event => { setEndDate(event.target.value); clearResult() }} /></label>
         <button className="primary-button" type="submit" disabled={loading}>{loading ? '조회 중…' : '내역 조회'}</button>
       </form>
-      <p className="card-query-hint">작성일자 기준 · 최대 200일 · 페이지당 100건 · 작성일자 오름차순</p>
+      {posting.searchBox(!!result)}
+      <p className="card-query-hint">작성일자 기준 · 최대 200일 · 기간 전체를 한 번에 불러와 검색합니다</p>
       {error && <p className="card-query-error" role="alert">{error}</p>}
       {loading && <p role="status">바로빌에서 세금계산서를 불러오고 있습니다.</p>}
       {result ? <>
@@ -81,9 +82,8 @@ export default function TaxInvoices(props: PostingProps) {
             </tbody>
           </table>
         </div>
-        <div className="card-pagination"><button className="ghost-button" disabled={loading || result.page <= 1} onClick={() => void query(result.page - 1)}>이전 페이지</button><span>{result.page} / {Math.max(1, result.totalPages)} 페이지</span><button className="ghost-button" disabled={loading || result.page >= result.totalPages} onClick={() => void query(result.page + 1)}>다음 페이지</button></div>
         <p className="card-query-hint">내용 칸의 회색 글씨는 세금계산서 품목명이며, 회계반영할 때 내용의 기본값으로 들어갑니다.</p>
-        <p className="card-query-hint">회계반영하면 입력한 수주의 지출내역에 전자세금계산서 지출로 등록됩니다. 강제회계반영은 지출내역에 등록하지 않고 반영 처리만 합니다. 상태 보기는 현재 페이지(최대 100건) 안에서 거릅니다.</p>
+        <p className="card-query-hint">회계반영하면 입력한 수주의 지출내역에 전자세금계산서 지출로 등록됩니다. 강제회계반영은 지출내역에 등록하지 않고 반영 처리만 합니다.</p>
         {posting.modal}
       </> : !loading && !error && <div className="expense-source-empty"><strong>기간을 선택한 뒤 내역 조회를 눌러주세요.</strong><p>홈택스에 신고된 매입 세금계산서를 확인할 수 있습니다.</p></div>}
     </div>

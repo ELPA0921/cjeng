@@ -63,7 +63,8 @@ export function usePosting<T extends { id: string }>(rows: T[], { orders, expens
   const pageSelected = pageRows.filter(row => selectedIds.has(row.id)).length
   const selectedRows = pageRows.filter(row => selectedIds.has(row.id))
 
-  function reset() { setSelectedIds(new Set()); setNotice(''); setSearch('') }
+  // The search term survives a new query, so it can be typed before the first one.
+  function reset() { setSelectedIds(new Set()); setNotice('') }
   function toggleRow(id: string, checked: boolean) {
     setSelectedIds(current => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next })
   }
@@ -109,11 +110,14 @@ export function usePosting<T extends { id: string }>(rows: T[], { orders, expens
     return null
   }
 
+  /** Always shown; Enter submits the panel's query form when nothing has been loaded yet. */
+  const searchBox = (loaded: boolean) => <div className="card-search">
+    <input type="search" aria-label="조회 내역 검색" placeholder="거래처, 내용, 수주번호, 금액, 날짜 검색" value={search}
+      onChange={event => { setSearch(event.target.value); setSelectedIds(new Set()) }}
+      onKeyDown={event => { if (event.key === 'Enter' && !loaded) { event.preventDefault(); event.currentTarget.closest('.panel')?.querySelector('form')?.requestSubmit() } }} />
+    {loaded && words.length > 0 && <span role="status">{found.length.toLocaleString('ko-KR')}건 일치</span>}
+  </div>
   const toolbar = <>
-    <div className="card-search">
-      <input type="search" aria-label="조회 내역 검색" placeholder="거래처, 내용, 수주번호, 금액, 날짜 검색" value={search} onChange={event => { setSearch(event.target.value); setSelectedIds(new Set()) }} />
-      {words.length > 0 && <span role="status">{found.length.toLocaleString('ko-KR')}건 일치</span>}
-    </div>
     <div className="card-toolbar">
       <div className="card-filter-tabs" role="tablist" aria-label="회계반영 상태로 보기">
         {filters.map(value => <button key={value} type="button" role="tab" aria-selected={filter === value} className={`card-filter-tab ${statusClass[value] ?? ''}`} onClick={() => { setFilter(value); setSelectedIds(new Set()) }}>
@@ -136,7 +140,7 @@ export function usePosting<T extends { id: string }>(rows: T[], { orders, expens
   const sortHeader = (key: string, label: string) => <button className="sort-button" type="button" onClick={() => setSort(current => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }))}>
     {label}{sort.key === key ? (sort.direction === 'asc' ? ' ↑' : ' ↓') : ''}
   </button>
-  const emptyMessage = (none: string) => rows.length === 0 ? none : words.length ? `검색어와 일치하는 ${filter === '전체' ? '' : `${filter} `}항목이 없습니다.` : `이 페이지에 ${filter} 항목이 없습니다.`
+  const emptyMessage = (none: string) => rows.length === 0 ? none : words.length ? `검색어와 일치하는 ${filter === '전체' ? '' : `${filter} `}항목이 없습니다.` : `조회 기간에 ${filter} 항목이 없습니다.`
 
-  return { entries, pageRows, selectedIds, setFilter, reset, toolbar, selectAll, rowBox, statusChip, sortHeader, modal: modalElement, emptyMessage }
+  return { entries, pageRows, selectedIds, setFilter, reset, searchBox, toolbar, selectAll, rowBox, statusChip, sortHeader, modal: modalElement, emptyMessage }
 }

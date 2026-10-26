@@ -44,7 +44,7 @@ export default function CorporateCards(props: PostingProps) {
   }, [reload])
   useEffect(() => () => activeRequest.current?.abort(), [])
 
-  async function query(page = 1) {
+  async function query() {
     if (!cardId || loading || loadingCards) return
     setError('')
     if (!startDate || !endDate || endDate < startDate || (Date.parse(endDate) - Date.parse(startDate)) / 86400000 >= 200) { setError('조회 기간은 시작일부터 최대 200일로 설정해 주세요.'); return }
@@ -52,7 +52,7 @@ export default function CorporateCards(props: PostingProps) {
     activeRequest.current?.abort()
     activeRequest.current = controller
     setLoading(true); setResult(null); posting.reset()
-    try { setResult(await request<CardApprovalPage>({ action: 'approvals', cardId, startDate, endDate, page }, controller.signal)) }
+    try { setResult(await request<CardApprovalPage>({ action: 'approvals', cardId, startDate, endDate, page: 'all' }, controller.signal)) }
     catch (err) { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : '승인내역 조회에 실패했습니다.') }
     finally { if (!controller.signal.aborted) setLoading(false) }
   }
@@ -76,7 +76,8 @@ export default function CorporateCards(props: PostingProps) {
         <label>종료일<input type="date" required value={endDate} disabled={busy} onChange={event => { setEndDate(event.target.value); clearResult() }} /></label>
         <button className="primary-button" type="submit" disabled={busy || !cardId}>{loading ? '조회 중…' : '내역 조회'}</button>
       </form>
-      <p className="card-query-hint">최대 200일 · 페이지당 100건 · 일자 오름차순</p>
+      {posting.searchBox(!!result)}
+      <p className="card-query-hint">최대 200일 · 기간 전체를 한 번에 불러와 검색합니다</p>
       {error && <p className="card-query-error" role="alert">{error}</p>}
       {!busy && !error && cards.length === 0 && <p role="status">바로빌에서 승인내역 수집이 설정된 법인카드와 조회 권한을 확인해 주세요.</p>}
       {loading && <p role="status">바로빌에서 승인내역을 불러오고 있습니다.</p>}
@@ -106,9 +107,8 @@ export default function CorporateCards(props: PostingProps) {
             </tbody>
           </table>
         </div>
-        <div className="card-pagination"><button className="ghost-button" disabled={loading || result.page <= 1} onClick={() => void query(result.page - 1)}>이전 페이지</button><span>{result.page} / {Math.max(1, result.totalPages)} 페이지</span><button className="ghost-button" disabled={loading || result.page >= result.totalPages} onClick={() => void query(result.page + 1)}>다음 페이지</button></div>
         <p className="card-query-hint">공급가액이 없거나 0인 원화 내역은 부가세·봉사료가 제공된 경우 금액에서 두 금액을 제외해 계산합니다.</p>
-        <p className="card-query-hint">회계반영하면 입력한 수주의 지출내역에 법인카드 지출로 등록됩니다. 강제회계반영은 지출내역에 등록하지 않고 반영 처리만 합니다. 상태 보기는 현재 페이지(최대 100건) 안에서 거릅니다. 페이지를 넘기거나 상태 보기를 바꾸면 선택이 해제됩니다.</p>
+        <p className="card-query-hint">회계반영하면 입력한 수주의 지출내역에 법인카드 지출로 등록됩니다. 강제회계반영은 지출내역에 등록하지 않고 반영 처리만 합니다. 상태 보기를 바꾸면 선택이 해제됩니다.</p>
         {posting.modal}
       </> : !busy && !error && cards.length > 0 && <div className="expense-source-empty"><strong>카드와 기간을 선택한 뒤 내역 조회를 눌러주세요.</strong><p>바로빌에서 수집한 사용내역을 확인할 수 있습니다.</p></div>}
     </div>

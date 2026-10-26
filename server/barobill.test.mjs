@@ -85,6 +85,13 @@ test('all cards merges every page of every card by date and pages the result wit
   assert.deepEqual(result.records.map(row => `${row.store}:${row.cardNumber}`), ['a1:4858', 'b1:3888', 'a2:4858', 'a3:4858'])
   assert.equal(result.total, 4); assert.equal(result.totalPages, 1); assert.equal(result.card.company, '전체 카드')
   await assert.rejects(client.approvals({ cardId: 'all', startDate: '2026-10-01', endDate: '2026-10-23', page: 2 }), /페이지/)
+  // page 'all' returns the whole period at once, for one card as well as for all cards.
+  const whole = await client.approvals({ cardId: 'all', startDate: '2026-10-01', endDate: '2026-10-23', page: 'all' })
+  assert.equal(whole.records.length, 4); assert.equal(whole.totalPages, 1)
+  const [first] = await client.cards()
+  const oneCard = await client.approvals({ cardId: first.id, startDate: '2026-10-01', endDate: '2026-10-23', page: 'all' })
+  assert.deepEqual(oneCard.records.map(row => row.store), ['a1', 'a2', 'a3']); assert.equal(oneCard.total, 3); assert.equal(oneCard.totalPages, 1)
+  assert.throws(() => validateCardQuery({ cardId: 'all', startDate: '2026-10-01', endDate: '2026-10-02', page: 'some' }), /페이지/)
   assert.equal(validateCardQuery({ cardId: 'all', startDate: '2026-10-01', endDate: '2026-10-02' }).cardId, 'all')
   assert.throws(() => validateCardQuery({ cardId: 'everything', startDate: '2026-10-01', endDate: '2026-10-02' }), /카드/)
 })
