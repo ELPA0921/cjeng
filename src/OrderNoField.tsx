@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { Order } from './orderTypes'
 import { findOrder } from './cardAccounting'
 
@@ -23,7 +23,7 @@ export default function OrderNoField({ value, orders, disabled, invalid, onChang
   // What the user is typing; null shows the committed value (as a label when it is a known order).
   const [draft, setDraft] = useState<string | null>(null)
   const [active, setActive] = useState(0)
-  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null)
+  const list = useRef<HTMLDivElement>(null)
   const selected = findOrder(orders, value)
   const text = draft ?? (selected ? orderLabel(selected) : value)
   const words = (draft ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean)
@@ -34,22 +34,32 @@ export default function OrderNoField({ value, orders, disabled, invalid, onChang
     .sort((a, b) => exact(a) - exact(b))
     .slice(0, 30)
 
-  // The list is fixed to the viewport so the modal's scrolling table cannot clip it.
-  function place() {
-    const rect = input.current?.getBoundingClientRect()
-    if (rect) setBox({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 340) })
-  }
+  // The list is fixed to the viewport so the modal's scrolling table cannot clip it. It is
+  // re-anchored after every render, because clearing an error message moves the field, and
+  // whenever anything scrolls or the window resizes.
+  const open = matches.length > 0
+  useLayoutEffect(() => {
+    if (!open) return
+    const place = () => {
+      const rect = input.current?.getBoundingClientRect()
+      if (rect && list.current) Object.assign(list.current.style, { top: `${rect.bottom + 4}px`, left: `${rect.left}px`, width: `${Math.max(rect.width, 340)}px` })
+    }
+    place()
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    return () => { window.removeEventListener('scroll', place, true); window.removeEventListener('resize', place) }
+  })
   function change(next: string) {
     // Editing a shown label ("26023 · 서강테") falls back to the number part.
     const typed = next.includes(' · ') ? next.split(' · ')[0].trim() : next
     setDraft(typed); onChange(typed)
-    setActive(0); place()
+    setActive(0)
   }
   function pick(order: Order) { onChange(order.orderNo); setDraft(null); setActive(0) }
 
   return <>
-    <input ref={input} aria-label="수주번호" aria-invalid={invalid} aria-autocomplete="list" aria-expanded={matches.length > 0} value={text} disabled={disabled} placeholder={disabled ? '-' : '수주번호 또는 수주처'}
-      onFocus={event => { place(); if (selected) event.currentTarget.select() }}
+    <input ref={input} aria-label="수주번호" aria-invalid={invalid} aria-autocomplete="list" aria-expanded={open} value={text} disabled={disabled} placeholder={disabled ? '-' : '수주번호 또는 수주처'}
+      onFocus={event => { if (selected) event.currentTarget.select() }}
       onBlur={() => { setDraft(null); onBlur() }}
       onChange={event => change(event.target.value)}
       onKeyDown={event => {
@@ -61,7 +71,7 @@ export default function OrderNoField({ value, orders, disabled, invalid, onChang
         if (event.key === 'Enter') { event.preventDefault(); pick(matches[Math.min(active, matches.length - 1)]) }
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); input.current?.blur() }
       }} />
-    {matches.length > 0 && box && <div className="order-suggest" role="listbox" style={{ top: box.top, left: box.left, width: box.width }}>
+    {open && <div ref={list} className="order-suggest" role="listbox">
       {matches.map((order, index) => <button key={order.id} type="button" role="option" aria-selected={index === active} tabIndex={-1}
         onMouseDown={event => { event.preventDefault(); pick(order) }} onMouseEnter={() => setActive(index)}>
         <strong>{order.orderNo}</strong><span>{order.client1 || '-'}</span><small>{order.projectName}</small>
