@@ -49,7 +49,8 @@ export default function OrderNoField({ value, orders, disabled, invalid, onChang
       onKeyDown={event => {
         // A shown label is edited as its number: Backspace drops a digit, or clears it when all is selected.
         if (selected && (event.key === 'Backspace' || event.key === 'Delete')) { event.preventDefault(); const all = event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === text.length; change(all ? '' : selected.orderNo.slice(0, -1)); return }
-        if (!matches.length) return
+        // Keys pressed while a Korean syllable is still being composed belong to the IME.
+        if (!matches.length || event.nativeEvent.isComposing) return
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setActive(current => (current + (event.key === 'ArrowDown' ? 1 : matches.length - 1)) % matches.length) }
         if (event.key === 'Enter') { event.preventDefault(); pick(matches[Math.min(active, matches.length - 1)]) }
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); input.current?.blur() }
