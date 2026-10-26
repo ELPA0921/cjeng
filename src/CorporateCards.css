@@ -76,7 +76,7 @@
 .tax-modified { margin-left: 6px; padding: 1px 5px; border-radius: 4px; color: #94570f; background: #fdf0dc; font-size: 10px; font-weight: 600; }
 .card-results-table td.tax-item { color: var(--text-muted); }
 .card-search { display: flex; align-items: center; gap: 10px; margin: 14px 0 8px; }
-/* In the query form the search box fills the rest of the row, right-aligned. */
+/* In the query form the search box fills the rest of the row, right-aligned next to 내역 조회. */
 .card-query-form .card-search { flex: 1 1 240px; justify-content: flex-end; margin: 0; }
 .card-query-form .card-search input { width: min(320px, 100%); min-height: 42px; }
 .card-query-form .card-search span { white-space: nowrap; }

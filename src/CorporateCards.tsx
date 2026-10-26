@@ -74,8 +74,8 @@ export default function CorporateCards(props: PostingProps) {
         </select></label>
         <label>시작일<input type="date" required value={startDate} disabled={busy} onChange={event => { setStartDate(event.target.value); clearResult() }} /></label>
         <label>종료일<input type="date" required value={endDate} disabled={busy} onChange={event => { setEndDate(event.target.value); clearResult() }} /></label>
-        <button className="primary-button" type="submit" disabled={busy || !cardId}>{loading ? '조회 중…' : '내역 조회'}</button>
         {posting.searchBox(!!result)}
+        <button className="primary-button" type="submit" disabled={busy || !cardId}>{loading ? '조회 중…' : '내역 조회'}</button>
       </form>
       <p className="card-query-hint">최대 200일 · 기간 전체를 한 번에 불러와 검색합니다</p>
       {error && <p className="card-query-error" role="alert">{error}</p>}
