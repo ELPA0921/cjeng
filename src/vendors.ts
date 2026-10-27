@@ -62,14 +62,13 @@ function foldedGroups(uses: VendorUse[], official: OfficialVendor[] = []) {
 }
 
 /**
- * Vendors used at least frequentVendorMinimum times, most used first. Spellings that differ only
- * by spaces or (주) count as one vendor, named as the tax invoice or card company names it, so
- * hand-typed 승우레이져 adds to (주)승우레이져. Without an official spelling the most used one wins.
+ * Vendors used at least frequentVendorMinimum times, most used first. Each spelling is counted and
+ * offered on its own, so (주)승우레이져 and 승우레이져 both appear; 거래처명 정리 merges them.
  */
 export function frequentVendors(uses: VendorUse[]): FrequentVendor[] {
-  return [...foldedGroups(uses).values()]
-    .map(spellings => ({ name: [...spellings].sort(bySourceThenUse)[0].name, count: spellings.reduce((sum, spelling) => sum + spelling.count, 0) }))
-    .filter(vendor => vendor.count >= frequentVendorMinimum)
+  return tallySpellings(uses)
+    .filter(spelling => spelling.count >= frequentVendorMinimum)
+    .map(({ name, count }) => ({ name, count }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko-KR'))
 }
 

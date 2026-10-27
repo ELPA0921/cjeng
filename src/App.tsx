@@ -726,8 +726,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   const workLogs = workspaceStore?.data.workLogs ?? localWorkLogs
   const purchaseOrders = workspaceStore?.data.purchases ?? defaultPurchaseOrders
   const cardAccounting = workspaceStore?.data.cardAccounting ?? localCardAccounting
-  // Vendors with 5+ expenses across every project are suggested in the 거래처 field, spelled as
-  // the 법인카드 and 전자세금계산서 postings spell them.
+  // Vendors with 5+ expenses across every project are suggested in the 거래처 field. 거래처명 정리
+  // also reads where each name came from, so the tax invoice and card spellings are kept.
   const postedExpenseIds = new Set(cardAccounting.map(entry => entry.expenseId))
   const vendorUses = expenses.map(expense => ({ vendor: expense.vendor, source: postedExpenseIds.has(expense.id) && isTaxInvoiceKind(expense.kind) ? '전자세금계산서' as const : postedExpenseIds.has(expense.id) ? '법인카드' as const : '' as const }))
   const expenseVendors = frequentVendors(vendorUses)

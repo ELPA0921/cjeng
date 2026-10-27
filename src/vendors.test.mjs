@@ -9,9 +9,10 @@ test('only vendors used five times or more are offered, most used first', () => 
   assert.deepEqual(vendors, [{ name: '승우레이져', count: 7 }, { name: '대화볼트', count: 6 }])
 })
 
-test('hand-typed spellings count toward the name the tax invoice or card uses', () => {
-  const vendors = frequentVendors([...uses('승우레이져', 3), ...uses('승우 레이져', 1), ...uses('(주)승우레이져', 1, '전자세금계산서')])
-  assert.deepEqual(vendors, [{ name: '(주)승우레이져', count: 5 }])
+test('each spelling is offered on its own', () => {
+  const vendors = frequentVendors([...uses('승우레이져', 5), ...uses('승우 레이져', 1), ...uses('(주)승우레이져', 6, '전자세금계산서')])
+  assert.deepEqual(vendors, [{ name: '(주)승우레이져', count: 6 }, { name: '승우레이져', count: 5 }])
+  assert.deepEqual(matchVendors(vendors, '승우').map(v => v.name), ['(주)승우레이져', '승우레이져'])
 })
 
 test('matching ignores spaces and (주), puts prefix matches first and hides an exact entry', () => {
