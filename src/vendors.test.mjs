@@ -1,16 +1,16 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { frequentVendors, matchVendors } from './vendors.ts'
+import { frequentVendors, matchVendors, vendorGroups } from './vendors.ts'
 
-const uses = (vendor, n, official = false) => Array(n).fill({ vendor, official })
+const uses = (vendor, n, source = '') => Array(n).fill({ vendor, source })
 
 test('only vendors used five times or more are offered, most used first', () => {
   const vendors = frequentVendors([...uses('승우레이져', 7), ...uses('대화볼트', 5), ...uses('한번업체', 4), ...uses(' 대화볼트 ', 1), ...uses('', 3)])
   assert.deepEqual(vendors, [{ name: '승우레이져', count: 7 }, { name: '대화볼트', count: 6 }])
 })
 
-test('hand-typed spellings count toward the name the card or tax invoice uses', () => {
-  const vendors = frequentVendors([...uses('승우레이져', 3), ...uses('승우 레이져', 1), ...uses('(주)승우레이져', 1, true)])
+test('hand-typed spellings count toward the name the tax invoice or card uses', () => {
+  const vendors = frequentVendors([...uses('승우레이져', 3), ...uses('승우 레이져', 1), ...uses('(주)승우레이져', 1, '전자세금계산서')])
   assert.deepEqual(vendors, [{ name: '(주)승우레이져', count: 5 }])
 })
 
@@ -21,4 +21,18 @@ test('matching ignores spaces and (주), puts prefix matches first and hides an 
   assert.deepEqual(matchVendors(vendors, '볼트').map(v => v.name), ['볼트나라', '대화볼트'])
   assert.deepEqual(matchVendors(vendors, '대화볼트'), [])
   assert.deepEqual(matchVendors(vendors, '  '), [])
+})
+
+test('vendor groups keep the tax invoice spelling, then the card one, and flag near spellings', () => {
+  const groups = vendorGroups([
+    ...uses('승우레이져', 12), ...uses('(주)승우레이져', 3, '전자세금계산서'), ...uses('승우레이져(주)', 2, '법인카드'),
+    ...uses('대화 볼트', 2), ...uses('대화볼트', 4, '법인카드'),
+    ...uses('한성펌프', 3), ...uses('한성펌푸', 1),
+    ...uses('혼자업체', 9),
+  ])
+  assert.deepEqual(groups.map(g => [g.target, g.total, g.similar, g.spellings.map(s => s.name)]), [
+    ['(주)승우레이져', 17, false, ['(주)승우레이져', '승우레이져(주)', '승우레이져']],
+    ['대화볼트', 6, false, ['대화볼트', '대화 볼트']],
+    ['한성펌프', 4, true, ['한성펌프', '한성펌푸']],
+  ])
 })
