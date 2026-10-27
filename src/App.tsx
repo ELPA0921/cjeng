@@ -1124,12 +1124,14 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     ]),
   }
   // The paper 지출내역서 lists supply amounts in date order regardless of the on-screen sort.
+  // Rows on the same date print in the reverse of their screen order, so the default newest-first
+  // screen reads exactly upside down on paper.
   // A personal card's "card number" holds the owner's name, so it moves to 비고.
   // 관리비 sheets are titled by their name alone ("2026년 관리비 지출내역"), without the 26000_ prefix.
   const printExpenses = () => printExpenseSheet(
     selectedProject && isAdminProject(selectedProject.id) ? selectedProject.projectName
       : [selectedProject?.orderNo, selectedProject?.client1, selectedProject?.projectName].filter(Boolean).join('_'),
-    [...filteredExpenses].sort((a, b) => a.date.localeCompare(b.date)).map(expense => {
+    [...filteredExpenses].reverse().sort((a, b) => a.date.localeCompare(b.date)).map(expense => {
       const personal = normalizeExpenseKind(expense.kind) === '개인카드'
       return {
         date: expense.date,
