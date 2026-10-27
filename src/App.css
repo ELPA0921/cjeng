@@ -1996,7 +1996,7 @@ tbody tr.selected-row:hover td {
   color: var(--text);
   font: inherit;
   font-size: 14px;
-  text-align: left;
+  text-align: center;
   white-space: nowrap;
   cursor: pointer;
 }
