@@ -73,8 +73,7 @@ export default function VendorCleanup({ uses, since, until, onApply, onClose }: 
 
 /**
  * Lists vendors written more than one way across every project's 지출내역 and renames the chosen
- * ones to a single spelling. Same-name groups start ticked; groups that are only one letter apart
- * start unticked, since they may be different companies.
+ * ones to a single spelling. Every group starts ticked; untick any that are different companies.
  */
 function CleanupList({ groups, note, onApply, onClose }: {
   groups: VendorGroup[]
@@ -83,7 +82,7 @@ function CleanupList({ groups, note, onApply, onClose }: {
   onClose: () => void
 }) {
   const [targets, setTargets] = useState<Record<string, string>>(() => Object.fromEntries(groups.map(group => [group.key, group.target])))
-  const [ticked, setTicked] = useState<Set<string>>(() => new Set(groups.filter(group => !group.similar).map(group => group.key)))
+  const [ticked, setTicked] = useState<Set<string>>(() => new Set(groups.map(group => group.key)))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const chosen = groups.filter(group => ticked.has(group.key))
@@ -120,7 +119,7 @@ function CleanupList({ groups, note, onApply, onClose }: {
       <div className="vendor-cleanup-body">
         {groups.length === 0 && <p>정리할 거래처가 없습니다. 5건 이상 거래한 업체는 모두 전자세금계산서·법인카드 내역과 같은 이름으로 적혀 있습니다.</p>}
         {section('표기만 다른 거래처', '띄어쓰기·(주) 차이', groups.filter(group => !group.similar))}
-        {section('비슷한 이름 — 확인 필요', '한 글자 차이라 다른 업체일 수 있어 체크하지 않았습니다', groups.filter(group => group.similar))}
+        {section('철자만 다른 거래처', '레이져/레이저, 쎈타/센타처럼 헷갈리기 쉬운 글자 차이', groups.filter(group => group.similar))}
       </div>
       {error && <p className="card-query-error" role="alert">{error}</p>}
       <div className="modal-actions">

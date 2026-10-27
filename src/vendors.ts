@@ -14,8 +14,8 @@ export type VendorSpelling = { name: string; count: number; source: VendorSource
 
 /**
  * Spellings that belong to one vendor. target is the spelling to keep: the tax invoice's, else
- * the card company's, else the most used. similar marks groups joined only by a near spelling
- * (one letter apart), which need a person to confirm.
+ * the card company's, else the most used. similar marks groups whose names differ in a commonly
+ * confused letter (레이져 / 레이저), not just in spaces or (주).
  */
 export type VendorGroup = { key: string; spellings: VendorSpelling[]; target: string; total: number; similar: boolean }
 
@@ -72,45 +72,46 @@ export function frequentVendors(uses: VendorUse[]): FrequentVendor[] {
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko-KR'))
 }
 
-/** True when one letter added, removed or changed turns a into b (승우레이저 / 승우레이져). */
-function oneEditApart(a: string, b: string) {
-  if (a.length > b.length) [a, b] = [b, a]
-  if (b.length - a.length > 1) return false
-  let i = 0
-  while (i < a.length && a[i] === b[i]) i += 1
-  return a.length === b.length ? a.slice(i + 1) === b.slice(i + 1) : a.slice(i) === b.slice(i + 1)
+// Letters people mix up when typing a company name. Only these count as the same name, so
+// 대상레이져 / 대상레이저 match while 대상레이져 / 대형레이져 and 동일크레인 / 제일크레인 do not.
+// Initials: ㄲㄸㅃㅆㅉ → ㄱㄷㅂㅅㅈ (쎈타 / 센타).
+const plainInitial: Record<number, number> = { 1: 0, 4: 3, 8: 7, 10: 9, 13: 12 }
+// Vowels: ㅐㅒㅖ → ㅔ (테크 / 태크), ㅙㅚ → ㅞ (웨 / 외 / 왜).
+const plainVowel: Record<number, number> = { 1: 5, 3: 5, 7: 5, 10: 15, 11: 15 }
+const jieut = new Set([12, 13, 14]) // ㅈ ㅉ ㅊ
+
+/** foldVendor, with commonly confused letters made the same: 져 → 저, 쳐 → 처, ㅐ → ㅔ, ㅆ → ㅅ. */
+function soundVendor(text: string) {
+  return [...foldVendor(text)].map(char => {
+    const code = char.charCodeAt(0) - 0xac00
+    if (code < 0 || code > 11171) return char
+    const initial = Math.floor(code / 588), final = code % 28
+    let vowel = Math.floor(code % 588 / 28)
+    // After ㅈ and ㅊ, ㅕ sounds like ㅓ: 레이져 / 레이저.
+    if (vowel === 6 && jieut.has(initial)) vowel = 4
+    vowel = plainVowel[vowel] ?? vowel
+    return String.fromCharCode(0xac00 + (plainInitial[initial] ?? initial) * 588 + vowel * 28 + final)
+  }).join('')
 }
 
 /**
  * Vendors with frequentVendorMinimum or more expenses that are not all written the official way,
- * most used first. Spellings that
- * fold to the same text are grouped for sure; names of four or more letters that are one letter
- * apart are grouped as similar. Official names from the tax invoice and card lists take part even
- * when no expense uses them yet, so a vendor typed only as 승우레이져 still becomes (주)승우레이져.
+ * most used first. Spellings that differ only in spaces or (주) are grouped, and so are those that
+ * differ only in commonly confused letters (similar). Official names from the tax invoice and card
+ * lists take part even when no expense uses them yet, so a vendor typed only as 승우레이져 still
+ * becomes (주)승우레이져.
  */
 export function vendorGroups(uses: VendorUse[], official: OfficialVendor[] = []): VendorGroup[] {
   const folded = foldedGroups(uses, official)
-  const keys = [...folded.keys()]
-  // Only names some expense uses matter; the thousands of other card stores join only as their match.
-  const used = keys.filter(key => folded.get(key)!.some(spelling => spelling.count > 0))
-  const parent = new Map(keys.map(key => [key, key]))
-  const root = (key: string): string => { const up = parent.get(key)!; return up === key ? key : root(up) }
-  const nearKeys = new Set<string>()
-  for (const a of used) {
-    for (const b of keys) {
-      if (a === b || Math.min(a.length, b.length) < 4 || !oneEditApart(a, b)) continue
-      parent.set(root(a), root(b))
-      nearKeys.add(a); nearKeys.add(b)
-    }
-  }
-  const joined = new Map<string, string[]>()
-  for (const key of keys) joined.set(root(key), [...joined.get(root(key)) ?? [], key])
-  return [...joined.values()]
-    .map(groupKeys => {
-      const ranked = groupKeys.flatMap(key => folded.get(key)!).sort(bySourceThenUse)
+  const sounds = new Map<string, string[]>()
+  for (const key of folded.keys()) sounds.set(soundVendor(key), [...sounds.get(soundVendor(key)) ?? [], key])
+  return [...sounds.entries()]
+    .map(([sound, keys]) => {
+      const ranked = keys.flatMap(key => folded.get(key)!).sort(bySourceThenUse)
       // An official spelling no expense uses is shown only when it is the name to change to.
       const spellings = ranked.filter((spelling, index) => index === 0 || spelling.count > 0)
-      return { key: groupKeys.join('|'), spellings, target: spellings[0].name, total: spellings.reduce((sum, spelling) => sum + spelling.count, 0), similar: groupKeys.some(key => nearKeys.has(key)) }
+      const shown = new Set(spellings.map(spelling => foldVendor(spelling.name)))
+      return { key: sound, spellings, target: spellings[0].name, total: spellings.reduce((sum, spelling) => sum + spelling.count, 0), similar: shown.size > 1 }
     })
     .filter(group => group.total >= frequentVendorMinimum && group.spellings.some(spelling => spelling.count > 0 && spelling.name !== group.target))
     .sort((a, b) => Number(a.similar) - Number(b.similar) || b.total - a.total)
