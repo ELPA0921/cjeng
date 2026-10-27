@@ -13,6 +13,8 @@ export type Expense = {
   supplyAmount?: number
   vatAmount?: number
   amount: number
+  /** Position among the same project's expenses on the same date, once someone arranges them. */
+  sequence?: number
 }
 
 export type WorkLog = {

@@ -15,6 +15,7 @@ import { planColumns } from './printLayout'
 import { adminOrder, adminOrders, adminProjectId, adminYearOfProject, isAdminProject } from './adminExpenses'
 import ModalClose from './ModalClose'
 import OutputMenu from './OutputMenu'
+import { moveWithinDate, sameDateOrder } from './expenseOrder'
 import { syncEditedExpense, unlinkDeletedExpenses } from './cardAccounting'
 import type { Order, SharedOrderStore } from './orderTypes'
 import type { CardAccounting, Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
@@ -922,9 +923,15 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     ? adminSummary(adminOrder(orderYear))
     : projectSummaries.find((project) => project.id === selectedProjectId)
   const expenseProjectOptions = view === 'adminExpenses' ? adminOrders(orders).map(adminSummary) : yearlyProjectSummaries
+  // Rows sharing a date keep the order set with ▲▼ in both sort directions and on paper.
+  const sameDate = sameDateOrder(expenses)
   const filteredExpenses = [...expenses]
     .filter((expense) => expense.projectId === expenseProjectId)
     .sort((a, b) => {
+      if (expenseSort.key === 'date') {
+        const byDate = compareText(a.date, b.date)
+        return (expenseSort.direction === 'asc' ? byDate : -byDate) || sameDate(a, b)
+      }
       const aValue =
         expenseSort.key === 'amount'
           ? a.amount
@@ -1094,6 +1101,17 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     filteredOrders.length > 0 &&
     filteredOrders.every((order) => selectedOrderIds.includes(order.id))
   const selectedExpenseCount = selectedExpenseIds.length
+  // ▲▼ move the one checked row among the rows of its date, while the table is sorted by 일자.
+  const [movingExpense, setMovingExpense] = useState(false)
+  const expenseMove = (direction: -1 | 1) => selectedExpenseCount === 1 && expenseSort.key === 'date'
+    ? moveWithinDate(filteredExpenses, selectedExpenseIds[0], direction) : null
+  async function moveSelectedExpense(direction: -1 | 1) {
+    const sequences = expenseMove(direction)
+    if (!sequences || movingExpense) return
+    setMovingExpense(true)
+    await setExpenses(current => current.map(expense => sequences.has(expense.id) ? { ...expense, sequence: sequences.get(expense.id) } : expense))
+    setMovingExpense(false)
+  }
   const allExpensesSelected =
     filteredExpenses.length > 0 &&
     filteredExpenses.every((expense) => selectedExpenseIds.includes(expense.id))
@@ -1146,14 +1164,13 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     ]),
   }
   // The paper 지출내역서 lists supply amounts in date order regardless of the on-screen sort.
-  // Rows on the same date print in the reverse of their screen order, so the default newest-first
-  // screen reads exactly upside down on paper.
+  // Rows on the same date print in the order the screen shows them.
   // A personal card's "card number" holds the owner's name, so it moves to 비고.
   // 관리비 sheets are titled by their name alone ("2026년 관리비 지출내역"), without the 26000_ prefix.
   const printExpenses = () => printExpenseSheet(
     selectedProject && isAdminProject(selectedProject.id) ? selectedProject.projectName
       : [selectedProject?.orderNo, selectedProject?.client1, selectedProject?.projectName].filter(Boolean).join('_'),
-    [...filteredExpenses].reverse().sort((a, b) => a.date.localeCompare(b.date)).map(expense => {
+    [...filteredExpenses].sort((a, b) => a.date.localeCompare(b.date) || sameDate(a, b)).map(expense => {
       const personal = normalizeExpenseKind(expense.kind) === '개인카드'
       return {
         date: expense.date,
@@ -2072,6 +2089,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
           expense.id === editingExpenseId
             ? {
                 ...expense,
+                // A row moved to another date or project loses its place in the old one.
+                sequence: expense.date === expenseForm.date && expense.projectId === expenseForm.projectId ? expense.sequence : undefined,
                 projectId: expenseForm.projectId,
                 date: expenseForm.date,
                 kind: resolvedExpenseKind,
@@ -3489,6 +3508,12 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   >
                     삭제
                   </button>
+                  <span className="expense-move" role="group" aria-label="같은 날짜 안에서 순서 바꾸기">
+                    <button className="ghost-button" type="button" aria-label="위로" title="같은 날짜 안에서 위로 (일자 정렬에서 한 건 선택)"
+                      disabled={movingExpense || !expenseMove(-1)} onClick={() => void moveSelectedExpense(-1)}>▲</button>
+                    <button className="ghost-button" type="button" aria-label="아래로" title="같은 날짜 안에서 아래로 (일자 정렬에서 한 건 선택)"
+                      disabled={movingExpense || !expenseMove(1)} onClick={() => void moveSelectedExpense(1)}>▼</button>
+                  </span>
                   <button className="ghost-button" type="button" onClick={() => setCleaningVendors(true)}>
                     거래처명 정리
                   </button>

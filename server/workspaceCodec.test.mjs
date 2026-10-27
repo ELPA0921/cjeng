@@ -33,3 +33,10 @@ test('compact expenses round-trip required and optional fields and stay much sma
   assert.throws(() => validateWorkspace({ ...data, expenses:[['e1','o-1','2026-10-01']] }), /지출내역 저장 형식/)
   assert.throws(() => validateWorkspace(packWorkspace({ ...data, expenses:[{ ...bare, date:'2026-02-30' }] })))
 })
+
+test('an arranged expense keeps its same-date sequence through packing and validation', () => {
+  const arranged = { id:'e4', projectId:'o-1', date:'2026-10-26', kind:'전자세금계산서', vendor:'서강테크', memo:'', amount:1000, sequence:2 }
+  const withSequence = { ...data, expenses:[arranged] }
+  assert.deepEqual(validateWorkspace(packWorkspace(withSequence)), withSequence)
+  assert.throws(() => validateWorkspace({ ...data, expenses:[{ ...arranged, sequence:'2' }] }))
+})

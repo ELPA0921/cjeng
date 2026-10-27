@@ -2014,3 +2014,25 @@ tbody tr.selected-row:hover td {
 .output-menu-list input {
   display: none;
 }
+
+/* ▲▼ beside 삭제: reorder rows that share a date */
+.expense-move {
+  display: inline-flex;
+}
+
+.expense-move .ghost-button {
+  min-width: 40px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.expense-move .ghost-button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.expense-move .ghost-button:last-child {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
