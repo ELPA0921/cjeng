@@ -14,6 +14,7 @@ import { printExpenseSheet } from './expensePrint'
 import { planColumns } from './printLayout'
 import { adminOrder, adminOrders, adminProjectId, adminYearOfProject, isAdminProject } from './adminExpenses'
 import ModalClose from './ModalClose'
+import OutputMenu from './OutputMenu'
 import { syncEditedExpense, unlinkDeletedExpenses } from './cardAccounting'
 import type { Order, SharedOrderStore } from './orderTypes'
 import type { CardAccounting, Expense, WorkLog, SharedWorkspaceStore, WorkspaceData } from './workspaceTypes'
@@ -1620,38 +1621,12 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     onPrint = () => printExportTable(table),
   ) {
     return (
-      <div className="output-actions">
-        <button
-          className="ghost-button compact-button"
-          disabled={table.rows.length === 0}
-          type="button"
-          onClick={() => exportTableToCsv(table)}
-        >
-          CSV 내보내기
-        </button>
-        {onImport && (
-          <label className="ghost-button compact-button file-import-button">
-            CSV 가져오기
-            <input
-              accept=".csv,text/csv"
-              type="file"
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file) readCsvFile(file, onImport)
-                event.target.value = ''
-              }}
-            />
-          </label>
-        )}
-        <button
-          className="ghost-button compact-button"
-          disabled={table.rows.length === 0}
-          type="button"
-          onClick={onPrint}
-        >
-          인쇄
-        </button>
-      </div>
+      <OutputMenu
+        empty={table.rows.length === 0}
+        onPrint={onPrint}
+        onExport={() => exportTableToCsv(table)}
+        onImportFile={onImport && ((file) => readCsvFile(file, onImport))}
+      />
     )
   }
 
