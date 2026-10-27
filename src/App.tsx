@@ -46,11 +46,11 @@ const expenseMenus = [
   ['taxInvoices', '전자세금계산서 조회'],
   ['corporateCards', '법인카드 조회'],
 ] as const
-// 거래관리: 물품구입처 and 발주처 are the two halves of the contacts screen.
+// 거래관리: 물품구입처 and 발주처 are the two halves of the contacts screen; 납품실적 comes last.
 const tradeMenus = [
-  ['deliveries', '납품실적'],
   ['contacts', '물품구입처'],
   ['orderContacts', '발주처'],
+  ['deliveries', '납품실적'],
 ] as const
 type ProjectDetailTab = 'worklogs' | 'expenses' | 'purchases'
 type ContactTab = 'purchase' | 'order'
@@ -2233,16 +2233,16 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
         <nav className="nav-tabs" aria-label="주요 메뉴">
           {([
             ['home', '홈'], ['orders', '수주대장'], ['dashboard', '공사현황'],
-            ['expenses', '지출내역'], ['worklogs', '작업일보'], ['deliveries', '거래관리'],
+            ['expenses', '지출내역'], ['worklogs', '작업일보'], ['contacts', '거래관리'],
           ] as const).map(([target, label]) => {
             // 지출내역 and 거래관리 open their sub-menu while one of their screens is shown.
-            const menus = target === 'expenses' ? expenseMenus : target === 'deliveries' ? tradeMenus : null
+            const menus = target === 'expenses' ? expenseMenus : target === 'contacts' ? tradeMenus : null
             const inGroup = view === target || (target === 'worklogs' && view === 'worklogList') || !!menus?.some(([screen]) => screen === view)
             return <Fragment key={target}>
             <button className={inGroup ? 'active' : ''}
               aria-current={inGroup ? 'page' : undefined}
               type="button" onClick={() => navigateTo(target)}>
-              <Icon name={target === 'deliveries' ? 'contacts' : target} /><span>{label}</span>{target === 'orders' && <small>{orders.length}</small>}
+              <Icon name={target} /><span>{label}</span>{target === 'orders' && <small>{orders.length}</small>}
             </button>
             {menus && inGroup && (
               <nav className="expense-subnav" aria-label={`${label} 하위 메뉴`}>
