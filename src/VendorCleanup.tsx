@@ -118,8 +118,7 @@ function CleanupList({ groups, note, onApply, onClose }: {
       {note && <p className="card-query-error" role="status">{note}</p>}
       <div className="vendor-cleanup-body">
         {groups.length === 0 && <p>정리할 거래처가 없습니다. 5건 이상 거래한 업체는 모두 전자세금계산서·법인카드 내역과 같은 이름으로 적혀 있습니다.</p>}
-        {section('표기만 다른 거래처', '띄어쓰기·(주) 차이', groups.filter(group => !group.similar))}
-        {section('철자만 다른 거래처', '레이져/레이저, 쎈타/센타처럼 헷갈리기 쉬운 글자 차이', groups.filter(group => group.similar))}
+        {section('표기만 다른 거래처', '띄어쓰기·(주) 차이', groups)}
       </div>
       {error && <p className="card-query-error" role="alert">{error}</p>}
       <div className="modal-actions">
