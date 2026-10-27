@@ -113,3 +113,5 @@
   .card-order-field { min-width: 0; }
   .card-order-picker-list button { grid-template-columns: 76px 1fr; }
 }
+.vendor-suggest button { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.vendor-suggest small { font-variant-numeric: tabular-nums; }

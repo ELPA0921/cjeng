@@ -7,6 +7,8 @@ import { getWorkCategory, workCategories, workProjectLabel, type WorkCategory } 
 import DeliveryPerformance from './DeliveryPerformance'
 import CorporateCards from './CorporateCards'
 import TaxInvoices from './TaxInvoices'
+import VendorField from './VendorField'
+import { frequentVendors } from './vendors'
 import { printExpenseSheet } from './expensePrint'
 import { planColumns } from './printLayout'
 import { adminOrder, adminOrders, adminProjectId, adminYearOfProject, isAdminProject } from './adminExpenses'
@@ -720,6 +722,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   const vendorEdits = workspaceStore?.data.vendorEdits ?? localVendorEdits
   const customVendorContacts = workspaceStore?.data.customVendorContacts ?? localCustomVendorContacts
   const expenses = workspaceStore?.data.expenses ?? localExpenses
+  // Vendors with 5+ expenses across every project are suggested in the 거래처 field.
+  const expenseVendors = frequentVendors(expenses.map(expense => expense.vendor))
   const workLogs = workspaceStore?.data.workLogs ?? localWorkLogs
   const purchaseOrders = workspaceStore?.data.purchases ?? defaultPurchaseOrders
   const cardAccounting = workspaceStore?.data.cardAccounting ?? localCardAccounting
@@ -3662,14 +3666,10 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   <div className="two-columns">
                     <label>
                       거래처
-                      <input
+                      <VendorField
                         value={expenseForm.vendor}
-                        onChange={(event) =>
-                          setExpenseForm({
-                            ...expenseForm,
-                            vendor: event.target.value,
-                          })
-                        }
+                        vendors={expenseVendors}
+                        onChange={(vendor) => setExpenseForm({ ...expenseForm, vendor })}
                         placeholder="예: 대성철물"
                       />
                     </label>
