@@ -732,8 +732,11 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   const vendorUses = expenses.map(expense => ({ vendor: expense.vendor, source: postedExpenseIds.has(expense.id) && isTaxInvoiceKind(expense.kind) ? '전자세금계산서' as const : postedExpenseIds.has(expense.id) ? '법인카드' as const : '' as const }))
   const expenseVendors = frequentVendors(vendorUses)
   const [cleaningVendors, setCleaningVendors] = useState(false)
-  // 거래처명 정리 reads the tax invoice and card lists back to the first expense.
+  // 거래처명 정리 reads the tax invoice and card lists back to the first expense, but Barobill
+  // holds nothing before 2026-05-01, so earlier periods are not asked for.
+  const barobillFirstDate = '2026-05-01'
   const firstExpenseDate = expenses.reduce((first, expense) => /^\d{4}-\d{2}-\d{2}$/.test(expense.date) && expense.date < first ? expense.date : first, today)
+  const vendorCleanupSince = firstExpenseDate < barobillFirstDate ? barobillFirstDate : firstExpenseDate
   // 거래처명 정리: rewrites every expense whose vendor is one of the old spellings.
   async function renameVendors(renames: Record<string, string>) {
     const renamed = (vendor: string) => Object.hasOwn(renames, vendor.trim()) ? renames[vendor.trim()] : vendor
@@ -3603,7 +3606,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
               </div>
             </div>
 
-            {cleaningVendors && <VendorCleanup uses={vendorUses} since={firstExpenseDate} until={today} onApply={renameVendors} onClose={() => setCleaningVendors(false)} />}
+            {cleaningVendors && <VendorCleanup uses={vendorUses} since={vendorCleanupSince} until={today} onApply={renameVendors} onClose={() => setCleaningVendors(false)} />}
             {isExpenseModalOpen && (
               <div className="modal-backdrop" role="presentation">
                 <form className="modal-panel form-panel" onSubmit={addExpense}>
