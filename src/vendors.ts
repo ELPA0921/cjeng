@@ -6,6 +6,9 @@ export type VendorSource = '' | '법인카드' | '전자세금계산서'
 /** One expense's vendor. */
 export type VendorUse = { vendor: string; source: VendorSource }
 
+/** A vendor name as the tax invoice or card company writes it, whether or not any expense uses it yet. */
+export type OfficialVendor = { name: string; source: Exclude<VendorSource, ''> }
+
 /** A spelling of a vendor and how many expenses use it; source is the most official one seen. */
 export type VendorSpelling = { name: string; count: number; source: VendorSource }
 
@@ -28,8 +31,15 @@ export const foldVendor = (text: string) => text
 const sourceRank: Record<VendorSource, number> = { '': 0, 법인카드: 1, 전자세금계산서: 2 }
 const bySourceThenUse = (a: VendorSpelling, b: VendorSpelling) => sourceRank[b.source] - sourceRank[a.source] || b.count - a.count || a.name.localeCompare(b.name, 'ko-KR')
 
-function tallySpellings(uses: VendorUse[]): VendorSpelling[] {
+function tallySpellings(uses: VendorUse[], official: OfficialVendor[] = []): VendorSpelling[] {
   const spellings = new Map<string, VendorSpelling>()
+  for (const { name: raw, source } of official) {
+    const name = raw.trim()
+    if (!foldVendor(name)) continue
+    const spelling = spellings.get(name) ?? { name, count: 0, source }
+    if (sourceRank[source] > sourceRank[spelling.source]) spelling.source = source
+    spellings.set(name, spelling)
+  }
   for (const use of uses) {
     const name = use.vendor.trim()
     if (!foldVendor(name)) continue
@@ -42,9 +52,9 @@ function tallySpellings(uses: VendorUse[]): VendorSpelling[] {
 }
 
 /** Spellings grouped by their folded text, so differences in spaces and (주) disappear. */
-function foldedGroups(uses: VendorUse[]) {
+function foldedGroups(uses: VendorUse[], official: OfficialVendor[] = []) {
   const groups = new Map<string, VendorSpelling[]>()
-  for (const spelling of tallySpellings(uses)) {
+  for (const spelling of tallySpellings(uses, official)) {
     const key = foldVendor(spelling.name)
     groups.set(key, [...groups.get(key) ?? [], spelling])
   }
@@ -73,19 +83,22 @@ function oneEditApart(a: string, b: string) {
 }
 
 /**
- * Vendors written more than one way, most used first. Spellings that fold to the same text are
- * grouped for sure; names of four or more letters that are one letter apart are grouped as similar.
+ * Vendors whose expenses are not all written the official way, most used first. Spellings that
+ * fold to the same text are grouped for sure; names of four or more letters that are one letter
+ * apart are grouped as similar. Official names from the tax invoice and card lists take part even
+ * when no expense uses them yet, so a vendor typed only as 승우레이져 still becomes (주)승우레이져.
  */
-export function vendorGroups(uses: VendorUse[]): VendorGroup[] {
-  const folded = foldedGroups(uses)
+export function vendorGroups(uses: VendorUse[], official: OfficialVendor[] = []): VendorGroup[] {
+  const folded = foldedGroups(uses, official)
   const keys = [...folded.keys()]
+  // Only names some expense uses matter; the thousands of other card stores join only as their match.
+  const used = keys.filter(key => folded.get(key)!.some(spelling => spelling.count > 0))
   const parent = new Map(keys.map(key => [key, key]))
   const root = (key: string): string => { const up = parent.get(key)!; return up === key ? key : root(up) }
   const nearKeys = new Set<string>()
-  for (let i = 0; i < keys.length; i += 1) {
-    for (let j = i + 1; j < keys.length; j += 1) {
-      const [a, b] = [keys[i], keys[j]]
-      if (Math.min(a.length, b.length) < 4 || !oneEditApart(a, b)) continue
+  for (const a of used) {
+    for (const b of keys) {
+      if (a === b || Math.min(a.length, b.length) < 4 || !oneEditApart(a, b)) continue
       parent.set(root(a), root(b))
       nearKeys.add(a); nearKeys.add(b)
     }
@@ -94,10 +107,12 @@ export function vendorGroups(uses: VendorUse[]): VendorGroup[] {
   for (const key of keys) joined.set(root(key), [...joined.get(root(key)) ?? [], key])
   return [...joined.values()]
     .map(groupKeys => {
-      const spellings = groupKeys.flatMap(key => folded.get(key)!).sort(bySourceThenUse)
+      const ranked = groupKeys.flatMap(key => folded.get(key)!).sort(bySourceThenUse)
+      // An official spelling no expense uses is shown only when it is the name to change to.
+      const spellings = ranked.filter((spelling, index) => index === 0 || spelling.count > 0)
       return { key: groupKeys.join('|'), spellings, target: spellings[0].name, total: spellings.reduce((sum, spelling) => sum + spelling.count, 0), similar: groupKeys.some(key => nearKeys.has(key)) }
     })
-    .filter(group => group.spellings.length > 1)
+    .filter(group => group.spellings.some(spelling => spelling.count > 0 && spelling.name !== group.target))
     .sort((a, b) => Number(a.similar) - Number(b.similar) || b.total - a.total)
 }
 

@@ -36,3 +36,12 @@ test('vendor groups keep the tax invoice spelling, then the card one, and flag n
     ['한성펌프', 4, true, ['한성펌프', '한성펌푸']],
   ])
 })
+
+test('names from the tax invoice and card lists win even when no expense uses them yet', () => {
+  const official = [{ name: '(주)승우레이져', source: '전자세금계산서' }, { name: '승우레이져', source: '법인카드' }, { name: '편의점', source: '법인카드' }, { name: '(주)한성펌프', source: '전자세금계산서' }]
+  const groups = vendorGroups([...uses('승우레이져', 12), ...uses('승우 레이져', 1), ...uses('한성펌푸', 2), ...uses('혼자업체', 3)], official)
+  assert.deepEqual(groups.map(g => [g.target, g.total, g.similar, g.spellings.map(s => [s.name, s.count, s.source])]), [
+    ['(주)승우레이져', 13, false, [['(주)승우레이져', 0, '전자세금계산서'], ['승우레이져', 12, '법인카드'], ['승우 레이져', 1, '']]],
+    ['(주)한성펌프', 2, true, [['(주)한성펌프', 0, '전자세금계산서'], ['한성펌푸', 2, '']]],
+  ])
+})
