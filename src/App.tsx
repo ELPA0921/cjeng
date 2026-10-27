@@ -722,11 +722,13 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   const vendorEdits = workspaceStore?.data.vendorEdits ?? localVendorEdits
   const customVendorContacts = workspaceStore?.data.customVendorContacts ?? localCustomVendorContacts
   const expenses = workspaceStore?.data.expenses ?? localExpenses
-  // Vendors with 5+ expenses across every project are suggested in the 거래처 field.
-  const expenseVendors = frequentVendors(expenses.map(expense => expense.vendor))
   const workLogs = workspaceStore?.data.workLogs ?? localWorkLogs
   const purchaseOrders = workspaceStore?.data.purchases ?? defaultPurchaseOrders
   const cardAccounting = workspaceStore?.data.cardAccounting ?? localCardAccounting
+  // Vendors with 5+ expenses across every project are suggested in the 거래처 field, spelled as
+  // the 법인카드 and 전자세금계산서 postings spell them.
+  const postedExpenseIds = new Set(cardAccounting.map(entry => entry.expenseId))
+  const expenseVendors = frequentVendors(expenses.map(expense => ({ vendor: expense.vendor, official: postedExpenseIds.has(expense.id) })))
   const [expenseEditRevision, setExpenseEditRevision] = useState<string | undefined>()
   const [vendorEditRevision, setVendorEditRevision] = useState<string | undefined>()
   async function updateWorkspace(patch: Partial<WorkspaceData>, revision=workspaceStore?.revision) {
