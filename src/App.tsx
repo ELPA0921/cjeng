@@ -924,8 +924,15 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     : projectSummaries.find((project) => project.id === selectedProjectId)
   const expenseProjectOptions = view === 'adminExpenses' ? adminOrders(orders).map(adminSummary) : yearlyProjectSummaries
   // Rows sharing a date keep the order set with ▲▼ in both sort directions and on paper.
-  const sameDate = sameDateOrder(expenses)
-  const filteredExpenses = [...expenses]
+  // ▲▼ rearrange rows on screen first; 적용 saves the new order and 초기화 drops it. The draft
+  // belongs to one project, so it disappears when another project is shown.
+  const [orderDraft, setOrderDraft] = useState<{ projectId: string; sequences: Record<string, number> } | null>(null)
+  const draftSequences = orderDraft?.projectId === expenseProjectId ? orderDraft.sequences : null
+  const shownExpenses = draftSequences
+    ? expenses.map(expense => Object.hasOwn(draftSequences, expense.id) ? { ...expense, sequence: draftSequences[expense.id] } : expense)
+    : expenses
+  const sameDate = sameDateOrder(shownExpenses)
+  const filteredExpenses = [...shownExpenses]
     .filter((expense) => expense.projectId === expenseProjectId)
     .sort((a, b) => {
       if (expenseSort.key === 'date') {
@@ -1102,15 +1109,20 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     filteredOrders.every((order) => selectedOrderIds.includes(order.id))
   const selectedExpenseCount = selectedExpenseIds.length
   // ▲▼ move the one checked row among the rows of its date, while the table is sorted by 일자.
-  const [movingExpense, setMovingExpense] = useState(false)
+  const [savingOrder, setSavingOrder] = useState(false)
   const expenseMove = (direction: -1 | 1) => selectedExpenseCount === 1 && expenseSort.key === 'date'
     ? moveWithinDate(filteredExpenses, selectedExpenseIds[0], direction) : null
-  async function moveSelectedExpense(direction: -1 | 1) {
+  function moveSelectedExpense(direction: -1 | 1) {
     const sequences = expenseMove(direction)
-    if (!sequences || movingExpense) return
-    setMovingExpense(true)
-    await setExpenses(current => current.map(expense => sequences.has(expense.id) ? { ...expense, sequence: sequences.get(expense.id) } : expense))
-    setMovingExpense(false)
+    if (!sequences || savingOrder) return
+    setOrderDraft({ projectId: expenseProjectId, sequences: { ...draftSequences, ...Object.fromEntries(sequences) } })
+  }
+  async function applyExpenseOrder() {
+    if (!draftSequences || savingOrder) return
+    setSavingOrder(true)
+    const saved = await setExpenses(current => current.map(expense => Object.hasOwn(draftSequences, expense.id) ? { ...expense, sequence: draftSequences[expense.id] } : expense))
+    setSavingOrder(false)
+    if (saved) setOrderDraft(null)
   }
   const allExpensesSelected =
     filteredExpenses.length > 0 &&
@@ -3483,7 +3495,20 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                 <span>{formatMoney(selectedProject?.cost ?? 0)}</span>
               </div>
               <div className="contact-actions">
-                <span>선택 {selectedExpenseCount}건</span>
+                <div className="expense-selection">
+                  <span>선택 {selectedExpenseCount}건</span>
+                  <div className="expense-move" role="group" aria-label="같은 날짜 안에서 순서 바꾸기">
+                    <button className="ghost-button" type="button" title="같은 날짜 안에서 위로 (일자 정렬에서 한 건 선택)"
+                      disabled={savingOrder || !expenseMove(-1)} onClick={() => moveSelectedExpense(-1)}>▲ 위</button>
+                    <button className="ghost-button" type="button" title="같은 날짜 안에서 아래로 (일자 정렬에서 한 건 선택)"
+                      disabled={savingOrder || !expenseMove(1)} onClick={() => moveSelectedExpense(1)}>▼ 아래</button>
+                    <button className="primary-button" type="button" title="바꾼 순서를 저장합니다"
+                      disabled={savingOrder || !draftSequences} onClick={() => void applyExpenseOrder()}>{savingOrder ? '저장 중…' : '적용'}</button>
+                    <button className="ghost-button" type="button" title="적용하기 전 순서로 되돌립니다"
+                      disabled={savingOrder || !draftSequences} onClick={() => setOrderDraft(null)}>초기화</button>
+                    {draftSequences && <small>순서를 바꿨습니다. 적용을 눌러야 저장됩니다.</small>}
+                  </div>
+                </div>
                 <div>
                   <button
                     className="primary-button compact-button"
@@ -3508,12 +3533,6 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                   >
                     삭제
                   </button>
-                  <span className="expense-move" role="group" aria-label="같은 날짜 안에서 순서 바꾸기">
-                    <button className="ghost-button" type="button" aria-label="위로" title="같은 날짜 안에서 위로 (일자 정렬에서 한 건 선택)"
-                      disabled={movingExpense || !expenseMove(-1)} onClick={() => void moveSelectedExpense(-1)}>▲</button>
-                    <button className="ghost-button" type="button" aria-label="아래로" title="같은 날짜 안에서 아래로 (일자 정렬에서 한 건 선택)"
-                      disabled={movingExpense || !expenseMove(1)} onClick={() => void moveSelectedExpense(1)}>▼</button>
-                  </span>
                   <button className="ghost-button" type="button" onClick={() => setCleaningVendors(true)}>
                     거래처명 정리
                   </button>

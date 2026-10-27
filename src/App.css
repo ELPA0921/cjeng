@@ -2015,24 +2015,34 @@ tbody tr.selected-row:hover td {
   display: none;
 }
 
-/* ▲▼ beside 삭제: reorder rows that share a date */
+/* Under 선택 N건: ▲▼ reorder rows that share a date, 적용 saves, 초기화 drops the change */
+.contact-actions > .expense-selection {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.expense-selection > span {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .expense-move {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
-.expense-move .ghost-button {
-  min-width: 40px;
-  padding: 0 10px;
+.expense-move button {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.expense-move small {
+  color: var(--text-muted);
   font-size: 12px;
-}
-
-.expense-move .ghost-button:first-child {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.expense-move .ghost-button:last-child {
-  margin-left: -1px;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
 }
