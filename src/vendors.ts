@@ -19,7 +19,7 @@ export type VendorSpelling = { name: string; count: number; source: VendorSource
  */
 export type VendorGroup = { key: string; spellings: VendorSpelling[]; target: string; total: number; similar: boolean }
 
-/** A vendor needs this many expenses before it is offered for autocomplete. */
+/** A vendor needs this many expenses before it is offered for autocomplete or 거래처명 정리. */
 export const frequentVendorMinimum = 5
 
 /** "(주)승우레이져", "승우 레이져" and "승우레이져" all fold to the same search text. */
@@ -83,7 +83,8 @@ function oneEditApart(a: string, b: string) {
 }
 
 /**
- * Vendors whose expenses are not all written the official way, most used first. Spellings that
+ * Vendors with frequentVendorMinimum or more expenses that are not all written the official way,
+ * most used first. Spellings that
  * fold to the same text are grouped for sure; names of four or more letters that are one letter
  * apart are grouped as similar. Official names from the tax invoice and card lists take part even
  * when no expense uses them yet, so a vendor typed only as 승우레이져 still becomes (주)승우레이져.
@@ -112,7 +113,7 @@ export function vendorGroups(uses: VendorUse[], official: OfficialVendor[] = [])
       const spellings = ranked.filter((spelling, index) => index === 0 || spelling.count > 0)
       return { key: groupKeys.join('|'), spellings, target: spellings[0].name, total: spellings.reduce((sum, spelling) => sum + spelling.count, 0), similar: groupKeys.some(key => nearKeys.has(key)) }
     })
-    .filter(group => group.spellings.some(spelling => spelling.count > 0 && spelling.name !== group.target))
+    .filter(group => group.total >= frequentVendorMinimum && group.spellings.some(spelling => spelling.count > 0 && spelling.name !== group.target))
     .sort((a, b) => Number(a.similar) - Number(b.similar) || b.total - a.total)
 }
 

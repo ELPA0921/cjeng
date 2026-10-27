@@ -23,25 +23,26 @@ test('matching ignores spaces and (주), puts prefix matches first and hides an 
   assert.deepEqual(matchVendors(vendors, '  '), [])
 })
 
-test('vendor groups keep the tax invoice spelling, then the card one, and flag near spellings', () => {
+test('vendors with fewer than five expenses are left out; groups keep the tax invoice spelling, then the card one, and flag near spellings', () => {
   const groups = vendorGroups([
     ...uses('승우레이져', 12), ...uses('(주)승우레이져', 3, '전자세금계산서'), ...uses('승우레이져(주)', 2, '법인카드'),
     ...uses('대화 볼트', 2), ...uses('대화볼트', 4, '법인카드'),
-    ...uses('한성펌프', 3), ...uses('한성펌푸', 1),
+    ...uses('한성펌프', 3), ...uses('한성펌푸', 2),
+    ...uses('대성철물', 3), ...uses('대성 철물', 1),
     ...uses('혼자업체', 9),
   ])
   assert.deepEqual(groups.map(g => [g.target, g.total, g.similar, g.spellings.map(s => s.name)]), [
     ['(주)승우레이져', 17, false, ['(주)승우레이져', '승우레이져(주)', '승우레이져']],
     ['대화볼트', 6, false, ['대화볼트', '대화 볼트']],
-    ['한성펌프', 4, true, ['한성펌프', '한성펌푸']],
+    ['한성펌프', 5, true, ['한성펌프', '한성펌푸']],
   ])
 })
 
 test('names from the tax invoice and card lists win even when no expense uses them yet', () => {
   const official = [{ name: '(주)승우레이져', source: '전자세금계산서' }, { name: '승우레이져', source: '법인카드' }, { name: '편의점', source: '법인카드' }, { name: '(주)한성펌프', source: '전자세금계산서' }]
-  const groups = vendorGroups([...uses('승우레이져', 12), ...uses('승우 레이져', 1), ...uses('한성펌푸', 2), ...uses('혼자업체', 3)], official)
+  const groups = vendorGroups([...uses('승우레이져', 12), ...uses('승우 레이져', 1), ...uses('한성펌푸', 5), ...uses('대성철물', 4)], [...official, { name: '(주)대성철물', source: '전자세금계산서' }])
   assert.deepEqual(groups.map(g => [g.target, g.total, g.similar, g.spellings.map(s => [s.name, s.count, s.source])]), [
     ['(주)승우레이져', 13, false, [['(주)승우레이져', 0, '전자세금계산서'], ['승우레이져', 12, '법인카드'], ['승우 레이져', 1, '']]],
-    ['(주)한성펌프', 2, true, [['(주)한성펌프', 0, '전자세금계산서'], ['한성펌푸', 2, '']]],
+    ['(주)한성펌프', 5, true, [['(주)한성펌프', 0, '전자세금계산서'], ['한성펌푸', 5, '']]],
   ])
 })

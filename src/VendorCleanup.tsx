@@ -113,12 +113,12 @@ function CleanupList({ groups, note, onApply, onClose }: {
   return <div className="modal-backdrop" role="presentation">
     <section className="modal-panel vendor-cleanup" role="dialog" aria-modal="true" aria-labelledby="vendor-cleanup-title">
       <div className="modal-heading">
-        <div><h3 id="vendor-cleanup-title">거래처명 정리</h3><span>모든 공사의 지출내역에서 같은 업체가 다른 이름으로 적힌 곳을 찾아 한 이름으로 맞춥니다. 바꿀 이름은 전자세금계산서 내역에 나온 이름, 없으면 법인카드 내역에 나온 이름이 기본입니다.</span></div>
+        <div><h3 id="vendor-cleanup-title">거래처명 정리</h3><span>모든 공사의 지출내역에서 5건 이상 거래한 업체 중 다른 이름으로 적힌 곳을 찾아 한 이름으로 맞춥니다. 바꿀 이름은 전자세금계산서 내역에 나온 이름, 없으면 법인카드 내역에 나온 이름이 기본입니다.</span></div>
         <ModalClose onClose={onClose} disabled={saving} />
       </div>
       {note && <p className="card-query-error" role="status">{note}</p>}
       <div className="vendor-cleanup-body">
-        {groups.length === 0 && <p>정리할 거래처가 없습니다. 모든 지출이 전자세금계산서·법인카드 내역과 같은 이름으로 적혀 있습니다.</p>}
+        {groups.length === 0 && <p>정리할 거래처가 없습니다. 5건 이상 거래한 업체는 모두 전자세금계산서·법인카드 내역과 같은 이름으로 적혀 있습니다.</p>}
         {section('표기만 다른 거래처', '띄어쓰기·(주) 차이', groups.filter(group => !group.similar))}
         {section('비슷한 이름 — 확인 필요', '한 글자 차이라 다른 업체일 수 있어 체크하지 않았습니다', groups.filter(group => group.similar))}
       </div>
