@@ -974,6 +974,31 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     }),
     { supplyAmount: 0, vatAmount: 0, amount: 0 },
   )
+  // 지출내역 search narrows the table and its 총합; 인쇄 and CSV still cover the whole list.
+  const [expenseSearch, setExpenseSearch] = useState('')
+  const expenseQuery = normalizeSearchText(expenseSearch)
+  const matchesExpenseSearch = (expense: Expense, query: string) => !query || normalizeSearchText([
+    expense.date, expense.vendor, expense.memo, normalizeExpenseKind(expense.kind), expense.cardNumber ?? '',
+    ...[getExpenseSupplyAmount(expense), getExpenseVatAmount(expense), expense.amount].flatMap(value => [String(value), formatNumber(value)]),
+  ].join(' ')).includes(query)
+  const visibleExpenses = filteredExpenses.filter(expense => matchesExpenseSearch(expense, expenseQuery))
+  const visibleExpenseTotals = visibleExpenses.reduce(
+    (totals, expense) => ({
+      supplyAmount: totals.supplyAmount + getExpenseSupplyAmount(expense),
+      vatAmount: totals.vatAmount + getExpenseVatAmount(expense),
+      amount: totals.amount + expense.amount,
+    }),
+    { supplyAmount: 0, vatAmount: 0, amount: 0 },
+  )
+  function searchExpenses(value: string) {
+    setExpenseSearch(value)
+    // Rows the search hides are unchecked, so 수정 and 삭제 only touch rows on screen.
+    const query = normalizeSearchText(value)
+    setSelectedExpenseIds(current => current.filter(id => {
+      const expense = filteredExpenses.find(row => row.id === id)
+      return expense ? matchesExpenseSearch(expense, query) : false
+    }))
+  }
   const filteredWorkLogs = [...workLogs]
     .filter((workLog) => workLog.projectId === selectedProjectId)
     .sort((a, b) => {
@@ -1112,7 +1137,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
   const selectedExpenseCount = selectedExpenseIds.length
   // ▲▼ move the one checked row among the rows of its date, while the table is sorted by 일자.
   const [savingOrder, setSavingOrder] = useState(false)
-  const expenseMove = (direction: -1 | 1) => selectedExpenseCount === 1 && expenseSort.key === 'date'
+  // Off while searching, since hidden rows of the same date would be skipped over.
+  const expenseMove = (direction: -1 | 1) => selectedExpenseCount === 1 && expenseSort.key === 'date' && !expenseQuery
     ? moveWithinDate(filteredExpenses, selectedExpenseIds[0], direction) : null
   function moveSelectedExpense(direction: -1 | 1) {
     const sequences = expenseMove(direction)
@@ -1127,8 +1153,8 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     if (saved) setOrderDraft(null)
   }
   const allExpensesSelected =
-    filteredExpenses.length > 0 &&
-    filteredExpenses.every((expense) => selectedExpenseIds.includes(expense.id))
+    visibleExpenses.length > 0 &&
+    visibleExpenses.every((expense) => selectedExpenseIds.includes(expense.id))
   const ordersExportTable: ExportTable = {
     title: `${orderYear}년 수주대장`,
     columns: [
@@ -1473,7 +1499,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
     setSelectedExpenseIds(
       allExpensesSelected
         ? []
-        : filteredExpenses.map((expense) => expense.id),
+        : visibleExpenses.map((expense) => expense.id),
     )
   }
 
@@ -3498,7 +3524,12 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
               </div>
               <div className="contact-actions">
                 <div className="expense-selection">
-                  <span>선택 {selectedExpenseCount}건</span>
+                  <div className="expense-search">
+                    <span>선택 {selectedExpenseCount}건</span>
+                    <input type="search" aria-label="지출내역 검색" placeholder="거래처·내용·금액·카드번호 검색" value={expenseSearch}
+                      onChange={(event) => searchExpenses(event.target.value)} />
+                    {expenseQuery && <small>{visibleExpenses.length}건 일치</small>}
+                  </div>
                   <div className="expense-move" role="group" aria-label="같은 날짜 안에서 순서 바꾸기">
                     <button className="ghost-button" type="button" title="같은 날짜 안에서 위로 (일자 정렬에서 한 건 선택)"
                       disabled={savingOrder || !expenseMove(-1)} onClick={() => moveSelectedExpense(-1)}>▲ 위</button>
@@ -3577,7 +3608,7 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredExpenses.map((expense) => (
+                    {visibleExpenses.map((expense) => (
                       <tr key={expense.id}>
                         <td className="check-cell">
                           <input
@@ -3605,19 +3636,24 @@ function App({ orderStore, workspaceStore }: { orderStore?: SharedOrderStore; wo
                         <td className="expense-center">{expense.cardNumber || '-'}</td>
                       </tr>
                     ))}
+                    {expenseQuery && visibleExpenses.length === 0 && (
+                      <tr>
+                        <td colSpan={9}>검색과 일치하는 지출내역이 없습니다.</td>
+                      </tr>
+                    )}
                   </tbody>
-                  {filteredExpenses.length > 0 && (
+                  {visibleExpenses.length > 0 && (
                     <tfoot>
                       <tr>
-                        <td colSpan={4}>총합</td>
+                        <td colSpan={4}>{expenseQuery ? '검색 결과 합계' : '총합'}</td>
                         <td className="numeric-cell">
-                          {formatNumber(expenseTotals.supplyAmount)}
+                          {formatNumber(visibleExpenseTotals.supplyAmount)}
                         </td>
                         <td className="numeric-cell">
-                          {formatNumber(expenseTotals.vatAmount)}
+                          {formatNumber(visibleExpenseTotals.vatAmount)}
                         </td>
                         <td className="numeric-cell">
-                          {formatNumber(expenseTotals.amount)}
+                          {formatNumber(visibleExpenseTotals.amount)}
                         </td>
                         <td colSpan={2}></td>
                       </tr>
