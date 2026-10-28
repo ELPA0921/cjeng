@@ -62,7 +62,7 @@ export default function ExpenseSearch({ expenses, orders, kinds, kindOf, filters
         <ModalClose onClose={onClose} />
       </div>
       <form className="expense-search-form" onSubmit={event => event.preventDefault()}>
-        <label className="wide">검색어<input autoFocus type="search" value={filters.keyword} placeholder="예: 동파이프컷터 (거래처·내용·카드번호)" onChange={event => set({ keyword: event.target.value })} /></label>
+        <label className="wide">검색어<input autoFocus type="search" value={filters.keyword} placeholder="거래처·내용·카드번호" onChange={event => set({ keyword: event.target.value })} /></label>
         <label className="wide">공사<input type="search" value={filters.project} placeholder="수주번호·공사명·발주처" onChange={event => set({ project: event.target.value })} /></label>
         <label>시작일<input type="date" value={filters.from} onChange={event => set({ from: event.target.value })} /></label>
         <label>종료일<input type="date" value={filters.to} onChange={event => set({ to: event.target.value })} /></label>
