@@ -2032,26 +2032,13 @@ tbody tr.selected-row:hover td {
   gap: 10px;
 }
 
-.expense-search input {
-  width: min(300px, 100%);
-  height: 36px;
+.expense-search-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
   padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font: inherit;
   font-size: 13px;
-}
-
-.expense-search small {
-  color: var(--text-muted);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-@media (max-width: 720px) {
-  .expense-search {
-    flex-wrap: wrap;
-  }
 }
 
 .expense-search > span {
@@ -2078,4 +2065,112 @@ tbody tr.selected-row:hover td {
 .expense-move small {
   color: var(--text-muted);
   font-size: 12px;
+}
+
+/* 지출 검색 window: conditions on top, matching expenses of every project below */
+.expense-search-modal {
+  width: min(1100px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.expense-search-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.expense-search-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.expense-search-form label.wide {
+  grid-column: span 2;
+}
+
+.expense-search-form input,
+.expense-search-form select {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.expense-search-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.expense-search-form .ghost-button {
+  height: 38px;
+}
+
+.expense-search-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: baseline;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.expense-search-summary strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.expense-search-results {
+  flex: 1 1 auto;
+  min-height: 160px;
+  overflow: auto;
+}
+
+.expense-search-results tbody tr {
+  cursor: pointer;
+}
+
+.expense-search-results tbody tr:hover,
+.expense-search-results tbody tr:focus-visible {
+  background: #eaf6f0;
+  outline: none;
+}
+
+.expense-search-project {
+  min-width: 170px;
+}
+
+.expense-search-project strong {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+.expense-search-project span {
+  display: block;
+  max-width: 260px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .expense-search-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
