@@ -15,8 +15,11 @@ const amountOf = (text: string) => { const digits = text.replace(/[^\d-]/g, '');
  * "where did we buy that 동파이프컷터?". Every filled condition must match; the keyword's
  * words may each appear in 거래처, 내용 or 카드번호. Picking a result opens it in 지출내역.
  */
-export default function ExpenseSearch({ expenses, orders, kinds, kindOf, filters, onFilters, onOpen, onClose }: {
+export default function ExpenseSearch({ expenses, orders, scope, kinds, kindOf, filters, onFilters, onOpen, onClose }: {
+  /** The expenses to look through: every 공사 after 2022, or the 22년 이전 ones. */
   expenses: Expense[]
+  /** What those expenses are, for the heading ("모든 공사와 관리비"). */
+  scope: string
   orders: Order[]
   kinds: readonly string[]
   /** The 구분 as the 지출내역 table shows it (old 세금계산서 rows read as 전자세금계산서). */
@@ -58,7 +61,7 @@ export default function ExpenseSearch({ expenses, orders, kinds, kindOf, filters
   return <div className="modal-backdrop" role="presentation">
     <section className="modal-panel expense-search-modal" role="dialog" aria-modal="true" aria-labelledby="expense-search-title">
       <div className="modal-heading">
-        <div><h3 id="expense-search-title">지출 검색</h3><span>모든 공사와 관리비의 지출내역에서 찾습니다. 입력한 조건을 모두 만족하는 지출만 보여 줍니다.</span></div>
+        <div><h3 id="expense-search-title">지출 검색</h3><span>{scope}의 지출내역에서 찾습니다. 입력한 조건을 모두 만족하는 지출만 보여 줍니다.</span></div>
         <ModalClose onClose={onClose} />
       </div>
       <form className="expense-search-form" onSubmit={event => event.preventDefault()}>
