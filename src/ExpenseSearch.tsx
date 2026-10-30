@@ -34,7 +34,9 @@ export default function ExpenseSearch({ expenses, orders, scope, kinds, kindOf, 
     const adminYear = adminYearOfProject(projectId)
     if (adminYear) return { orderNo: `${adminYear.slice(2)}000`, name: `${adminYear}년 관리비`, client: '' }
     const order = ordersById.get(projectId)
-    return order ? { orderNo: order.orderNo, name: order.projectName, client: order.client1 } : { orderNo: '-', name: '공사 미지정', client: '' }
+    // 22년 이전 공사 use the 공사명 as their 수주번호, so their year stands in for it.
+    const orderNo = order && order.orderNo === order.projectName && order.year ? order.year : order?.orderNo
+    return order ? { orderNo: orderNo ?? '', name: order.projectName, client: order.client1 } : { orderNo: '-', name: '공사 미지정', client: '' }
   }
   const set = (patch: Partial<ExpenseSearchFilters>) => onFilters({ ...filters, ...patch })
   const keyword = words(filters.keyword)
